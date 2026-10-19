@@ -2,6 +2,7 @@ package com.becoder.serviceImpl;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,11 +17,8 @@ import com.becoder.service.CategoryService;
 @Transactional
 public class CategoryServiceImpl implements CategoryService {
 
-	private final CategoryRepository categoryRepository;
-
-	public CategoryServiceImpl(CategoryRepository categoryRepository) {
-		this.categoryRepository = categoryRepository;
-	}
+	@Autowired	
+	private CategoryRepository categoryRepository;
 
 	@Override
 	public CategoryResponse createCategory(CategoryRequest request) {

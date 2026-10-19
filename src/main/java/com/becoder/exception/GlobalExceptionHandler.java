@@ -99,4 +99,10 @@ public class GlobalExceptionHandler {
 		return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.",
 				request);
 	}
+	
+	@ExceptionHandler(SupplierNotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleSupplierNotFound(SupplierNotFoundException ex,HttpServletRequest request) {
+		return buildResponse(HttpStatus.NOT_FOUND,ex.getMessage(),request);
+	}
+
 }
