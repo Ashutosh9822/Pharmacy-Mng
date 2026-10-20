@@ -104,5 +104,15 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleSupplierNotFound(SupplierNotFoundException ex,HttpServletRequest request) {
 		return buildResponse(HttpStatus.NOT_FOUND,ex.getMessage(),request);
 	}
+	
+	@ExceptionHandler(MedicineNotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleMedicineNotFound(MedicineNotFoundException ex,HttpServletRequest request) {
+	    return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request);
+	}
+
+	@ExceptionHandler(DuplicateBarcodeException.class)
+	public ResponseEntity<ErrorResponse> handleDuplicateBarcode(DuplicateBarcodeException ex,HttpServletRequest request) {
+	    return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
+	}
 
 }
