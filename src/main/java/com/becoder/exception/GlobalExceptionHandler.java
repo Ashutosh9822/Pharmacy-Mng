@@ -115,4 +115,15 @@ public class GlobalExceptionHandler {
 	    return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
 	}
 
+
+	@ExceptionHandler(MedicineBatchNotFoundException.class)
+	public ResponseEntity<ErrorResponse> handleMedicineBatchNotFound(MedicineBatchNotFoundException ex,HttpServletRequest request) {
+		return buildResponse(HttpStatus.NOT_FOUND,ex.getMessage(),request);
+	}
+
+	@ExceptionHandler(DuplicateMedicineBatchException.class)
+	public ResponseEntity<ErrorResponse> handleDuplicateMedicineBatch(DuplicateMedicineBatchException ex,HttpServletRequest request) {
+		return buildResponse(HttpStatus.CONFLICT,ex.getMessage(),request);
+	}
+
 }
