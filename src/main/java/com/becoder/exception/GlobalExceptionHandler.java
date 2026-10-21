@@ -125,5 +125,10 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleDuplicateMedicineBatch(DuplicateMedicineBatchException ex,HttpServletRequest request) {
 		return buildResponse(HttpStatus.CONFLICT,ex.getMessage(),request);
 	}
+	
+	@ExceptionHandler(InsufficientStockException.class)
+	public ResponseEntity<ErrorResponse> handleInsufficientStock(InsufficientStockException ex,HttpServletRequest request) {
+		return buildResponse(HttpStatus.CONFLICT,ex.getMessage(),request);
+	}
 
 }

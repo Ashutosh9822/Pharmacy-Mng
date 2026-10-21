@@ -4,8 +4,13 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.becoder.entity.MedicineBatch;
+
+import jakarta.persistence.LockModeType;
 
 public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Long> {
 
@@ -20,5 +25,9 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
 	List<MedicineBatch> findByMedicine_IdAndIsDeletedFalse(Long medicineId);
 
 	List<MedicineBatch> findBySupplier_IdAndIsDeletedFalse(Long supplierId);
+	
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT b FROM MedicineBatch b WHERE b.id = :id AND b.isDeleted = false")
+	Optional<MedicineBatch> findByIdAndIsDeletedFalseForUpdate(@Param("id") Long id);
 
 }
