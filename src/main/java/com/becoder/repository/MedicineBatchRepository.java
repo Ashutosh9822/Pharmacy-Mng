@@ -50,4 +50,15 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
 			""")
 	List<MedicineBatch> findBatchesExpiringBetween(@Param("today") LocalDate today,@Param("endDate") LocalDate endDate);
 
+	@Query("""
+			SELECT b.medicine.id, COALESCE(SUM(b.quantity), 0)
+			FROM MedicineBatch b
+			WHERE b.isDeleted = false
+			  AND b.expiryDate >= :today
+			  AND b.medicine.isDeleted = false
+			  AND b.medicine.isActive = true
+			GROUP BY b.medicine.id
+			""")
+	List<Object[]> findUsableStockByMedicine(@Param("today") LocalDate today);
+
 }
