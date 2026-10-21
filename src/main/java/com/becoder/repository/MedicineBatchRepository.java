@@ -1,5 +1,6 @@
 package com.becoder.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,9 +26,28 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
 	List<MedicineBatch> findByMedicine_IdAndIsDeletedFalse(Long medicineId);
 
 	List<MedicineBatch> findBySupplier_IdAndIsDeletedFalse(Long supplierId);
-	
+
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("SELECT b FROM MedicineBatch b WHERE b.id = :id AND b.isDeleted = false")
 	Optional<MedicineBatch> findByIdAndIsDeletedFalseForUpdate(@Param("id") Long id);
+
+	// Find batches that have already expired
+	@Query("""
+			SELECT b FROM MedicineBatch b
+			WHERE b.isDeleted = false
+			  AND b.expiryDate < :today
+			ORDER BY b.expiryDate ASC
+			""")
+	List<MedicineBatch> findExpiredBatches(@Param("today") LocalDate today);
+
+	// Find batches expiring between today and a specified date
+	@Query("""
+			SELECT b FROM MedicineBatch b
+			WHERE b.isDeleted = false
+			  AND b.expiryDate >= :today
+			  AND b.expiryDate <= :endDate
+			ORDER BY b.expiryDate ASC
+			""")
+	List<MedicineBatch> findBatchesExpiringBetween(@Param("today") LocalDate today,@Param("endDate") LocalDate endDate);
 
 }
