@@ -61,4 +61,32 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
 			""")
 	List<Object[]> findUsableStockByMedicine(@Param("today") LocalDate today);
 
+	@Query("""
+			SELECT
+			    b.supplier.id,
+			    b.supplier.name,
+			    b.medicine.id,
+			    b.medicine.name,
+			    b.medicine.genericName,
+			    b.medicine.brand,
+			    COALESCE(SUM(b.quantity), 0),
+			    COALESCE(SUM(b.quantity * b.purchasePrice), 0)
+			FROM MedicineBatch b
+			WHERE b.isDeleted = false
+			  AND b.expiryDate >= :today
+			  AND b.medicine.isDeleted = false
+			  AND b.medicine.isActive = true
+			  AND b.supplier.isDeleted = false
+			  AND b.supplier.isActive = true
+			GROUP BY
+			    b.supplier.id,
+			    b.supplier.name,
+			    b.medicine.id,
+			    b.medicine.name,
+			    b.medicine.genericName,
+			    b.medicine.brand
+			ORDER BY b.supplier.name ASC, b.medicine.name ASC
+			""")
+	List<Object[]> findUsableStockBySupplierAndMedicine(@Param("today") LocalDate today);
+
 }
