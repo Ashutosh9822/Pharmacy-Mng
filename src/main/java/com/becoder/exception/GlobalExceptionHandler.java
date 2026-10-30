@@ -11,6 +11,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -95,9 +96,7 @@ public class GlobalExceptionHandler {
 
 		// Log the full exception on the server for debugging.
 		ex.printStackTrace();
-
-		return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.",
-				request);
+		return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.",request);
 	}
 	
 	@ExceptionHandler(SupplierNotFoundException.class)
@@ -131,4 +130,10 @@ public class GlobalExceptionHandler {
 		return buildResponse(HttpStatus.CONFLICT,ex.getMessage(),request);
 	}
 
+	// Authentication failures (incorrect email or password)
+	@ExceptionHandler(AuthenticationException.class)
+	public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex, HttpServletRequest request) {
+	    return buildResponse(HttpStatus.UNAUTHORIZED,"Invalid email or password",request);
+	}
+	
 }
