@@ -9,13 +9,15 @@ import com.becoder.entity.Supplier;
 
 public interface SupplierRepository extends JpaRepository<Supplier, Long> {
 
-	// Find all suppliers that have not been deleted.
-    List<Supplier> findByIsDeletedFalse();
+	// Find all non-deleted suppliers belonging to a pharmacy.
+	List<Supplier> findByPharmacy_IdAndIsDeletedFalse(Long pharmacyId);
 
-    // Find one supplier only if it has not been deleted.
-    Optional<Supplier> findByIdAndIsDeletedFalse(Long id);
+	// Find a non-deleted supplier by ID within a pharmacy.
+	Optional<Supplier> findByIdAndPharmacy_IdAndIsDeletedFalse(Long id, Long pharmacyId);
 
-    // Find active suppliers for ordering and replenishment.
-    List<Supplier> findByIsActiveTrueAndIsDeletedFalse();
-	
+	// Find active, non-deleted suppliers within a pharmacy.
+	List<Supplier> findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(Long pharmacyId);
+
+	// Find a deleted supplier by ID within a pharmacy (for restoration).
+	Optional<Supplier> findByIdAndPharmacy_IdAndIsDeletedTrue(Long id, Long pharmacyId);
 }

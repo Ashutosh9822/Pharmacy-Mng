@@ -4,17 +4,26 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+
 import com.becoder.entity.Category;
 
 public interface CategoryRepository extends JpaRepository<Category, Long> {
 
-	List<Category> findByIsDeletedFalse();
+	// Get all non-deleted categories of a pharmacy
+	List<Category> findByPharmacy_IdAndIsDeletedFalse(Long pharmacyId);
 
-	Optional<Category> findByIdAndIsDeletedFalse(Long id);
+	// Get a specific non-deleted category belonging to a pharmacy
+	Optional<Category> findByIdAndPharmacy_IdAndIsDeletedFalse(Long id, Long pharmacyId);
 
-	boolean existsByNameIgnoreCaseAndIsDeletedFalse(String name);
+	// Check duplicate category name, including soft-deleted categories
+	boolean existsByNameIgnoreCaseAndPharmacy_Id(String name, Long pharmacyId);
 
-	Optional<Category> findByIdAndIsDeletedTrue(Long id);
-	
-	List<Category> findByIsActiveTrueAndIsDeletedFalse();
+	// Check duplicate category name during update, excluding the current category
+	boolean existsByNameIgnoreCaseAndIdNotAndPharmacy_Id(String name, Long id, Long pharmacyId);
+
+	// Find a deleted category belonging to a pharmacy (for restoration)
+	Optional<Category> findByIdAndPharmacy_IdAndIsDeletedTrue(Long id, Long pharmacyId);
+
+	// Get active and non-deleted categories of a pharmacy
+	List<Category> findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(Long pharmacyId);
 }

@@ -18,12 +18,21 @@ public class JwtService {
 
 	private final SecretKey signingKey;
 	private final long expirationMillis;
+	
+	public JwtService(@Value("${JWT_SECRET}") String secret, @Value("${jwt.expiration:86400000}") long expirationMillis) {
 
-	public JwtService(@Value("${JWT_SECRET}") String secret,@Value("${jwt.expiration:86400000}") long expirationMillis) {
-		
-		byte[] keyBytes = Decoders.BASE64.decode(secret);
-		this.signingKey = Keys.hmacShaKeyFor(keyBytes);
-		this.expirationMillis = expirationMillis;
+	    if (expirationMillis <= 0) {
+	        throw new IllegalArgumentException("JWT expiration must be greater than zero");
+	    }
+
+	    byte[] keyBytes = Decoders.BASE64.decode(secret);
+
+	    if (keyBytes.length < 32) {
+	        throw new IllegalArgumentException("JWT secret must contain at least 256 bits (32 bytes)");
+	    }
+
+	    this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+	    this.expirationMillis = expirationMillis;
 	}
 
 	public String generateToken(UserDetails userDetails) {

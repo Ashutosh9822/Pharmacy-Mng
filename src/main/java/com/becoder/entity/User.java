@@ -3,11 +3,16 @@ package com.becoder.entity;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -28,6 +33,10 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "pharmacy_id", nullable = false)
+    private Pharmacy pharmacy;
 
     @Column(name = "full_name", nullable = false, length = 100)
     private String fullName;
@@ -35,6 +44,7 @@ public class User {
     @Column(nullable = false, length = 150)
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
@@ -71,6 +81,14 @@ public class User {
 
     public void setId(Long id) {
         this.id = id;
+    }
+    
+    public Pharmacy getPharmacy() {
+        return pharmacy;
+    }
+
+    public void setPharmacy(Pharmacy pharmacy) {
+        this.pharmacy = pharmacy;
     }
 
     public String getFullName() {

@@ -75,15 +75,15 @@ public class UnifiedAlertServiceImpl implements UnifiedAlertService {
 		
 		allAlerts.sort(
 			    Comparator.comparingInt(alert -> {
-//			        String severity = alert.getAlertSeverity();
+			        String alertSeverity = alert.getAlertSeverity();
 
-			        if ("CRITICAL".equalsIgnoreCase(severity)) {
+			        if ("CRITICAL".equalsIgnoreCase(alertSeverity)) {
 			            return 1;
-			        } else if ("HIGH".equalsIgnoreCase(severity)) {
+			        } else if ("HIGH".equalsIgnoreCase(alertSeverity)) {
 			            return 2;
-			        } else if ("MEDIUM".equalsIgnoreCase(severity)) {
+			        } else if ("MEDIUM".equalsIgnoreCase(alertSeverity)) {
 			            return 3;
-			        } else if ("LOW".equalsIgnoreCase(severity)) {
+			        } else if ("LOW".equalsIgnoreCase(alertSeverity)) {
 			            return 4;
 			        }
 

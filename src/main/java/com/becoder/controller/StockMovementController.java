@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.becoder.dto.StockMovementRequest;
@@ -21,12 +22,14 @@ public class StockMovementController {
 	private StockMovementService stockMovementService;
 
 	// Receive stock into a batch
+	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/stock-in")
 	public ResponseEntity<StockMovementResponse> stockIn(@Valid @RequestBody StockMovementRequest request) {
 		return ResponseEntity.status(HttpStatus.CREATED).body(stockMovementService.stockIn(request));
 	}
 
 	// Dispense or sell stock from a batch
+	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/stock-out")
 	public ResponseEntity<StockMovementResponse> stockOut(@Valid @RequestBody StockMovementRequest request) {
 		return ResponseEntity.ok(stockMovementService.stockOut(request));

@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,7 @@ public class CategoryController {
 	private CategoryService categoryService;
 
 	// Create category
+	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/create-category")
 	public ResponseEntity<CategoryResponse> createCategory(@Valid @RequestBody CategoryRequest request) {
 		CategoryResponse response = categoryService.createCategory(request);
@@ -50,12 +52,14 @@ public class CategoryController {
 	}
 
 	// Update category
+	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}")
 	public ResponseEntity<CategoryResponse> updateCategory(@PathVariable Long id,@Valid @RequestBody CategoryRequest request) {
 		return ResponseEntity.ok(categoryService.updateCategory(id, request));
 	}
 
 	// Delete category
+	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
 		categoryService.deleteCategory(id);
@@ -63,6 +67,7 @@ public class CategoryController {
 	}
 	
 	// Restore category
+	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}/restore")
 	public ResponseEntity<CategoryResponse> restoreCategory(@PathVariable Long id) {
 	    CategoryResponse response = categoryService.restoreCategory(id);

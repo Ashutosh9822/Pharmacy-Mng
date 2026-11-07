@@ -23,8 +23,8 @@ import jakarta.persistence.CheckConstraint;
     name = "medicine_batches",
     uniqueConstraints = {
         @UniqueConstraint(
-            name = "uk_batch_medicine_number",
-            columnNames = {"medicine_id", "batch_number"}
+            name = "uk_batch_pharmacy_medicine_number",
+            columnNames = {"pharmacy_id", "medicine_id", "batch_number"}
         )
     },
     check = {
@@ -44,6 +44,10 @@ public class MedicineBatch {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "pharmacy_id", nullable = false)
+    private Pharmacy pharmacy;
+    
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "medicine_id", nullable = false)
     private Medicine medicine;
@@ -117,6 +121,14 @@ public class MedicineBatch {
 
     public void setId(Long id) {
         this.id = id;
+    }
+    
+    public Pharmacy getPharmacy() {
+        return pharmacy;
+    }
+
+    public void setPharmacy(Pharmacy pharmacy) {
+        this.pharmacy = pharmacy;
     }
 
     public Medicine getMedicine() {

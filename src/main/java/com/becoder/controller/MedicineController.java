@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +30,7 @@ public class MedicineController {
 	@Autowired
 	private MedicineService medicineService;
 
+	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/create-medicine")
 	public ResponseEntity<MedicineResponse> createMedicine(@Valid @RequestBody MedicineRequest request) {
 		MedicineResponse response = medicineService.createMedicine(request);
@@ -50,11 +52,13 @@ public class MedicineController {
 		return ResponseEntity.ok(medicineService.getMedicineById(id));
 	}
 
+	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}")
 	public ResponseEntity<MedicineResponse> updateMedicine(@PathVariable Long id,@Valid @RequestBody MedicineRequest request) {
 		return ResponseEntity.ok(medicineService.updateMedicine(id, request));
 	}
 
+	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteMedicine(@PathVariable Long id) {
 		medicineService.deleteMedicine(id);

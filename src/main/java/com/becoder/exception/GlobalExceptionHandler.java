@@ -2,6 +2,7 @@
 package com.becoder.exception;
 
 import java.time.LocalDateTime;
+
 import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,14 +12,19 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+	
+	private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
 	private ResponseEntity<ErrorResponse> buildResponse(HttpStatus status, String message, HttpServletRequest request) {
 		ErrorResponse response = new ErrorResponse(LocalDateTime.now(), status.value(), status.getReasonPhrase(),message, request.getRequestURI());
@@ -93,9 +99,7 @@ public class GlobalExceptionHandler {
 	// Unexpected errors
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex, HttpServletRequest request) {
-
-		// Log the full exception on the server for debugging.
-		ex.printStackTrace();
+		 logger.error("Unexpected error occurred while processing request: {}",request.getRequestURI(),ex);
 		return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred. Please try again later.",request);
 	}
 	
@@ -113,7 +117,6 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ErrorResponse> handleDuplicateBarcode(DuplicateBarcodeException ex,HttpServletRequest request) {
 	    return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
 	}
-
 
 	@ExceptionHandler(MedicineBatchNotFoundException.class)
 	public ResponseEntity<ErrorResponse> handleMedicineBatchNotFound(MedicineBatchNotFoundException ex,HttpServletRequest request) {
@@ -134,6 +137,11 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(AuthenticationException.class)
 	public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException ex, HttpServletRequest request) {
 	    return buildResponse(HttpStatus.UNAUTHORIZED,"Invalid email or password",request);
+	}
+	
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex,HttpServletRequest request) {
+	    return buildResponse(HttpStatus.FORBIDDEN,"You do not have permission to perform this operation",request);
 	}
 	
 }

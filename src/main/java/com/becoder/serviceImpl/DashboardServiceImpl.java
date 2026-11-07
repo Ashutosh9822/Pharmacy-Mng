@@ -14,6 +14,7 @@ import com.becoder.entity.Medicine;
 import com.becoder.repository.MedicineBatchRepository;
 import com.becoder.repository.MedicineRepository;
 import com.becoder.repository.SupplierRepository;
+import com.becoder.service.CurrentUserService;
 import com.becoder.service.DashboardService;
 import com.becoder.service.ExpiryTrackingService;
 import com.becoder.service.InventoryOptimizationService;
@@ -23,75 +24,96 @@ import com.becoder.service.SupplierReorderService;
 @Transactional(readOnly = true)
 public class DashboardServiceImpl implements DashboardService {
 
-	private static final int DEFAULT_LOW_STOCK_THRESHOLD = 10;
-	private static final int DEFAULT_TARGET_STOCK = 50;
-	private static final int EXPIRING_SOON_DAYS = 30;
+    private static final int DEFAULT_LOW_STOCK_THRESHOLD = 10;
+    private static final int DEFAULT_TARGET_STOCK = 50;
+    private static final int EXPIRING_SOON_DAYS = 30;
 
-	private final MedicineRepository medicineRepository;
-	private final SupplierRepository supplierRepository;
-	private final MedicineBatchRepository medicineBatchRepository;
-	private final ExpiryTrackingService expiryTrackingService;
-	private final InventoryOptimizationService inventoryOptimizationService;
-	private final SupplierReorderService supplierReorderService;
+    private final MedicineRepository medicineRepository;
+    private final SupplierRepository supplierRepository;
+    private final MedicineBatchRepository medicineBatchRepository;
 
-	public DashboardServiceImpl(MedicineRepository medicineRepository, SupplierRepository supplierRepository,
-			MedicineBatchRepository medicineBatchRepository, ExpiryTrackingService expiryTrackingService,
-			InventoryOptimizationService inventoryOptimizationService, SupplierReorderService supplierReorderService) {
+    private final ExpiryTrackingService expiryTrackingService;
+    private final InventoryOptimizationService inventoryOptimizationService;
+    private final SupplierReorderService supplierReorderService;
+    private final CurrentUserService currentUserService;
 
-		this.medicineRepository = medicineRepository;
-		this.supplierRepository = supplierRepository;
-		this.medicineBatchRepository = medicineBatchRepository;
-		this.expiryTrackingService = expiryTrackingService;
-		this.inventoryOptimizationService = inventoryOptimizationService;
-		this.supplierReorderService = supplierReorderService;
-	}
+    public DashboardServiceImpl(
+            MedicineRepository medicineRepository,
+            SupplierRepository supplierRepository,
+            MedicineBatchRepository medicineBatchRepository,
+            ExpiryTrackingService expiryTrackingService,
+            InventoryOptimizationService inventoryOptimizationService,
+            SupplierReorderService supplierReorderService,
+            CurrentUserService currentUserService) {
 
-	@Override
-	public DashboardSummaryResponse getDashboardSummary() {
+        this.medicineRepository = medicineRepository;
+        this.supplierRepository = supplierRepository;
+        this.medicineBatchRepository = medicineBatchRepository;
+        this.expiryTrackingService = expiryTrackingService;
+        this.inventoryOptimizationService = inventoryOptimizationService;
+        this.supplierReorderService = supplierReorderService;
+        this.currentUserService = currentUserService;
+    }
 
-		// 1. Count active medicines.
-		List<Medicine> activeMedicines = medicineRepository.findByIsActiveTrueAndIsDeletedFalse();
+    @Override
+    public DashboardSummaryResponse getDashboardSummary() {
 
-		long totalActiveMedicines = activeMedicines.size();
+        // Get authenticated user's pharmacy ID.
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-		// 2. Count active suppliers.
-		long totalActiveSuppliers = supplierRepository.findByIsActiveTrueAndIsDeletedFalse().size();
+        // 1. Count active medicines belonging to this pharmacy.
+        List<Medicine> activeMedicines = medicineRepository.findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(pharmacyId);
 
-		// 3. Calculate total usable stock from non-expired batches.
-		List<Object[]> stockRows = medicineBatchRepository.findUsableStockByMedicine(LocalDate.now());
+        long totalActiveMedicines = activeMedicines.size();
 
-		long totalUsableStock = 0L;
+        // 2. Count active suppliers belonging to this pharmacy.
+        long totalActiveSuppliers = supplierRepository.findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(pharmacyId).size();
 
-		for (Object[] row : stockRows) {
-			if (row[1] != null) {
-				totalUsableStock += ((Number) row[1]).longValue();
-			}
-		}
+        // 3. Calculate total usable stock from this pharmacy's non-expired batches.
+        List<Object[]> stockRows = medicineBatchRepository.findUsableStockByMedicine(LocalDate.now(), pharmacyId);
 
-		// 4. Count expired batches.
-		List<ExpiryBatchResponse> expiredBatches = expiryTrackingService.getExpiredBatches();
+        long totalUsableStock = 0L;
 
-		long totalExpiredBatches = expiredBatches.size();
+        for (Object[] row : stockRows) {
+            if (row[1] != null) {
+                totalUsableStock += ((Number) row[1]).longValue();
+            }
+        }
 
-		// 5. Count batches expiring within the next 30 days.
-		List<ExpiryBatchResponse> expiringSoonBatches = expiryTrackingService
-				.getExpiringSoonBatches(EXPIRING_SOON_DAYS);
+        // 4. Count expired batches belonging to this pharmacy.
+        List<ExpiryBatchResponse> expiredBatches = expiryTrackingService.getExpiredBatches();
 
-		long totalExpiringSoonBatches = expiringSoonBatches.size();
+        long totalExpiredBatches = expiredBatches.size();
 
-		// 6. Count medicines requiring replenishment.
-		List<InventoryOptimizationResponse> lowStockMedicines = inventoryOptimizationService
-				.getLowStockMedicines(DEFAULT_LOW_STOCK_THRESHOLD, DEFAULT_TARGET_STOCK);
+        // 5. Count batches expiring within the next 30 days.
+        List<ExpiryBatchResponse> expiringSoonBatches = expiryTrackingService.getExpiringSoonBatches(EXPIRING_SOON_DAYS);
 
-		long totalLowStockMedicines = lowStockMedicines.size();
+        long totalExpiringSoonBatches = expiringSoonBatches.size();
 
-		// 7. Count supplier reorder recommendations.
-		List<SupplierReorderResponse> reorderRecommendations = supplierReorderService
-				.getReorderRecommendations(DEFAULT_LOW_STOCK_THRESHOLD, DEFAULT_TARGET_STOCK);
+        // 6. Count medicines requiring replenishment.
+        List<InventoryOptimizationResponse> lowStockMedicines =
+                inventoryOptimizationService.getLowStockMedicines(
+                        DEFAULT_LOW_STOCK_THRESHOLD,
+                        DEFAULT_TARGET_STOCK);
 
-		long totalReorderRecommendations = reorderRecommendations.size();
+        long totalLowStockMedicines = lowStockMedicines.size();
 
-		return new DashboardSummaryResponse(totalActiveMedicines, totalActiveSuppliers, totalUsableStock,
-				totalExpiredBatches, totalExpiringSoonBatches, totalLowStockMedicines, totalReorderRecommendations);
-	}
+        // 7. Count supplier reorder recommendations.
+        List<SupplierReorderResponse> reorderRecommendations =
+                supplierReorderService.getReorderRecommendations(
+                        DEFAULT_LOW_STOCK_THRESHOLD,
+                        DEFAULT_TARGET_STOCK);
+
+        long totalReorderRecommendations =
+                reorderRecommendations.size();
+
+        return new DashboardSummaryResponse(
+                totalActiveMedicines,
+                totalActiveSuppliers,
+                totalUsableStock,
+                totalExpiredBatches,
+                totalExpiringSoonBatches,
+                totalLowStockMedicines,
+                totalReorderRecommendations);
+    }
 }

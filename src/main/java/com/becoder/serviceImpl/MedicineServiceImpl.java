@@ -16,6 +16,7 @@ import com.becoder.exception.DuplicateBarcodeException;
 import com.becoder.exception.MedicineNotFoundException;
 import com.becoder.repository.CategoryRepository;
 import com.becoder.repository.MedicineRepository;
+import com.becoder.service.CurrentUserService;
 import com.becoder.service.MedicineService;
 
 @Service
@@ -23,175 +24,182 @@ import com.becoder.service.MedicineService;
 public class MedicineServiceImpl implements MedicineService {
 
 	@Autowired
-    private MedicineRepository medicineRepository;
-    
+	private MedicineRepository medicineRepository;
+
 	@Autowired
-    private CategoryRepository categoryRepository;
+	private CategoryRepository categoryRepository;
 
-    @Override
-    public MedicineResponse createMedicine(MedicineRequest request) {
+	@Autowired
+	private CurrentUserService currentUserService;
 
-        Category category = findActiveCategory(request.getCategoryId());
+	// 1. Create medicine
+	@Override
+	public MedicineResponse createMedicine(MedicineRequest request) {
 
-        validateBarcode(request.getBarcode(), null);
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-        Medicine medicine = new Medicine();
+		// Verify category belongs to the current pharmacy.
+		Category category = findActiveCategory(request.getCategoryId(), pharmacyId);
 
-        medicine.setName(request.getName().trim());
-        medicine.setGenericName(request.getGenericName());
-        medicine.setBrand(request.getBrand());
-        medicine.setDosageForm(request.getDosageForm());
-        medicine.setStrength(request.getStrength());
-        medicine.setBarcode(normalizeBarcode(request.getBarcode()));
-        medicine.setDescription(request.getDescription());
-        medicine.setCategory(category);
-        medicine.setActive(request.getIsActive() == null || request.getIsActive());
-        medicine.setDeleted(false);
+		// Check barcode duplication within the current pharmacy.
+		validateBarcode(request.getBarcode(), null, pharmacyId);
 
-        Medicine savedMedicine = medicineRepository.save(medicine);
+		Medicine medicine = new Medicine();
 
-        return toResponse(savedMedicine);
-    }
+		medicine.setName(request.getName().trim());
+		medicine.setGenericName(request.getGenericName());
+		medicine.setBrand(request.getBrand());
+		medicine.setDosageForm(request.getDosageForm());
+		medicine.setStrength(request.getStrength());
+		medicine.setBarcode(normalizeBarcode(request.getBarcode()));
+		medicine.setDescription(request.getDescription());
+		medicine.setCategory(category);
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<MedicineResponse> getAllMedicines() {
+		// Automatically assign authenticated user's pharmacy.
+		medicine.setPharmacy(currentUserService.getCurrentUser().getPharmacy());
 
-        return medicineRepository.findByIsDeletedFalse()
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
+		medicine.setActive(request.getIsActive() == null || request.getIsActive());
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<MedicineResponse> getActiveMedicines() {
+		medicine.setDeleted(false);
 
-        return medicineRepository.findByIsActiveTrueAndIsDeletedFalse()
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
+		Medicine savedMedicine = medicineRepository.save(medicine);
 
-    @Override
-    @Transactional(readOnly = true)
-    public MedicineResponse getMedicineById(Long id) {
+		return toResponse(savedMedicine);
+	}
 
-        Medicine medicine = findExistingMedicine(id);
+	// 2. Get all non-deleted medicines for current pharmacy.
+	@Override
+	@Transactional(readOnly = true)
+	public List<MedicineResponse> getAllMedicines() {
 
-        return toResponse(medicine);
-    }
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-    @Override
-    public MedicineResponse updateMedicine(
-            Long id, MedicineRequest request) {
+		return medicineRepository.findByPharmacy_IdAndIsDeletedFalse(pharmacyId).stream().map(this::toResponse)
+				.toList();
+	}
 
-        Medicine medicine = findExistingMedicine(id);
+	// 3. Get active medicines for current pharmacy.
+	@Override
+	@Transactional(readOnly = true)
+	public List<MedicineResponse> getActiveMedicines() {
 
-        Category category = findActiveCategory(request.getCategoryId());
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-        validateBarcode(request.getBarcode(), id);
+		return medicineRepository.findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(pharmacyId).stream()
+				.map(this::toResponse).toList();
+	}
 
-        medicine.setName(request.getName().trim());
-        medicine.setGenericName(request.getGenericName());
-        medicine.setBrand(request.getBrand());
-        medicine.setDosageForm(request.getDosageForm());
-        medicine.setStrength(request.getStrength());
-        medicine.setBarcode(normalizeBarcode(request.getBarcode()));
-        medicine.setDescription(request.getDescription());
-        medicine.setCategory(category);
+	// 4. Get medicine by ID within current pharmacy.
+	@Override
+	@Transactional(readOnly = true)
+	public MedicineResponse getMedicineById(Long id) {
 
-        if (request.getIsActive() != null) {
-            medicine.setActive(request.getIsActive());
-        }
+		Medicine medicine = findExistingMedicine(id);
 
-        Medicine updatedMedicine = medicineRepository.save(medicine);
+		return toResponse(medicine);
+	}
 
-        return toResponse(updatedMedicine);
-    }
+	// 5. Update medicine within current pharmacy.
+	@Override
+	public MedicineResponse updateMedicine(Long id, MedicineRequest request) {
 
-    @Override
-    public void deleteMedicine(Long id) {
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-        Medicine medicine = findExistingMedicine(id);
+		Medicine medicine = findExistingMedicine(id);
 
-        medicine.setDeleted(true);
-        medicine.setActive(false);
+		// Verify the new category belongs to the same pharmacy.
+		Category category = findActiveCategory(request.getCategoryId(), pharmacyId);
 
-        medicineRepository.save(medicine);
-    }
+		// Check barcode duplication within the current pharmacy.
+		validateBarcode(request.getBarcode(), id, pharmacyId);
 
-    private Medicine findExistingMedicine(Long id) {
+		medicine.setName(request.getName().trim());
+		medicine.setGenericName(request.getGenericName());
+		medicine.setBrand(request.getBrand());
+		medicine.setDosageForm(request.getDosageForm());
+		medicine.setStrength(request.getStrength());
+		medicine.setBarcode(normalizeBarcode(request.getBarcode()));
+		medicine.setDescription(request.getDescription());
+		medicine.setCategory(category);
 
-        return medicineRepository.findByIdAndIsDeletedFalse(id)
-                .orElseThrow(() ->
-                        new MedicineNotFoundException(
-                                "Medicine not found with id: " + id));
-    }
+		if (request.getIsActive() != null) {
+			medicine.setActive(request.getIsActive());
+		}
 
-    private Category findActiveCategory(Long categoryId) {
+		Medicine updatedMedicine = medicineRepository.save(medicine);
 
-        return categoryRepository
-                .findByIdAndIsDeletedFalse(categoryId)
-                .filter(Category::isActive)
-                .orElseThrow(() ->
-                        new CategoryNotFoundException(
-                                "Active category not found with id: "+ categoryId));
-    }
+		return toResponse(updatedMedicine);
+	}
 
-    private void validateBarcode(String barcode, Long medicineId) {
+	// 6. Soft-delete medicine within current pharmacy.
+	@Override
+	public void deleteMedicine(Long id) {
 
-        if (!StringUtils.hasText(barcode)) {
-            return;
-        }
+		Medicine medicine = findExistingMedicine(id);
 
-        String normalizedBarcode = barcode.trim();
+		medicine.setDeleted(true);
+		medicine.setActive(false);
 
-        boolean exists;
+		medicineRepository.save(medicine);
+	}
 
-        if (medicineId == null) {
-            exists = medicineRepository
-                    .existsByBarcodeIgnoreCaseAndIsDeletedFalse(
-                            normalizedBarcode);
-        } else {
-            exists = medicineRepository
-                    .existsByBarcodeIgnoreCaseAndIdNotAndIsDeletedFalse(
-                            normalizedBarcode, medicineId);
-        }
+	// Find only non-deleted medicines belonging to current pharmacy.
+	private Medicine findExistingMedicine(Long id) {
 
-        if (exists) {
-            throw new DuplicateBarcodeException(
-                    "A medicine with barcode '" + normalizedBarcode
-                            + "' already exists");
-        }
-    }
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-    private String normalizeBarcode(String barcode) {
+		return medicineRepository.findByIdAndPharmacy_IdAndIsDeletedFalse(id, pharmacyId)
+				.orElseThrow(() -> new MedicineNotFoundException("Medicine not found with id: " + id));
+	}
 
-        if (!StringUtils.hasText(barcode)) {
-            return null;
-        }
+	// Find an active category belonging to current pharmacy.
+	private Category findActiveCategory(Long categoryId, Long pharmacyId) {
 
-        return barcode.trim();
-    }
+		return categoryRepository.findByIdAndPharmacy_IdAndIsDeletedFalse(categoryId, pharmacyId)
+				.filter(Category::isActive)
+				.orElseThrow(() -> new CategoryNotFoundException("Active category not found with id: " + categoryId));
+	}
 
-    private MedicineResponse toResponse(Medicine medicine) {
+	// Validate barcode uniqueness within current pharmacy.
+	private void validateBarcode(String barcode, Long medicineId, Long pharmacyId) {
 
-        return new MedicineResponse(
-                medicine.getId(),
-                medicine.getName(),
-                medicine.getGenericName(),
-                medicine.getBrand(),
-                medicine.getDosageForm(),
-                medicine.getStrength(),
-                medicine.getBarcode(),
-                medicine.getDescription(),
-                medicine.getCategory().getId(),
-                medicine.getCategory().getName(),
-                medicine.isActive(),
-                medicine.isDeleted(),
-                medicine.getCreatedAt(),
-                medicine.getUpdatedOn(),
-                medicine.getUpdatedBy());
-    }
+		if (!StringUtils.hasText(barcode)) {
+			return;
+		}
+
+		String normalizedBarcode = barcode.trim();
+
+		boolean exists;
+
+		if (medicineId == null) {
+			exists = medicineRepository.existsByBarcodeIgnoreCaseAndPharmacy_IdAndIsDeletedFalse(normalizedBarcode,pharmacyId);
+
+		} else {
+			exists = medicineRepository.existsByBarcodeIgnoreCaseAndIdNotAndPharmacy_IdAndIsDeletedFalse(normalizedBarcode, medicineId, pharmacyId);
+		}
+
+		if (exists) {
+			throw new DuplicateBarcodeException("A medicine with barcode '" + normalizedBarcode + "' already exists in this pharmacy");
+		}
+	}
+
+	// Normalize barcode.
+	private String normalizeBarcode(String barcode) {
+
+		if (!StringUtils.hasText(barcode)) {
+			return null;
+		}
+
+		return barcode.trim();
+	}
+
+	// Convert entity to response DTO.
+	private MedicineResponse toResponse(Medicine medicine) {
+
+		return new MedicineResponse(medicine.getId(), medicine.getName(), medicine.getGenericName(),
+				medicine.getBrand(), medicine.getDosageForm(), medicine.getStrength(), medicine.getBarcode(),
+				medicine.getDescription(), medicine.getCategory().getId(), medicine.getCategory().getName(),
+				medicine.isActive(), medicine.isDeleted(), medicine.getCreatedAt(), medicine.getUpdatedOn(),
+				medicine.getUpdatedBy());
+	}
 }

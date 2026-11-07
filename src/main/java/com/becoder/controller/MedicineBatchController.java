@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.becoder.dto.MedicineBatchRequest;
@@ -21,6 +22,7 @@ public class MedicineBatchController {
 	private MedicineBatchService batchService;
 
 	// Create a new medicine batch
+	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/create-batch")
 	public ResponseEntity<MedicineBatchResponse> createBatch(@Valid @RequestBody MedicineBatchRequest request) {
 		MedicineBatchResponse response = batchService.createBatch(request);
@@ -40,12 +42,14 @@ public class MedicineBatchController {
 	}
 
 	// Update a batch
+	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}")
 	public ResponseEntity<MedicineBatchResponse> updateBatch(@PathVariable Long id,@Valid @RequestBody MedicineBatchRequest request) {
 		return ResponseEntity.ok(batchService.updateBatch(id, request));
 	}
 
 	// Soft-delete a batch
+	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteBatch(@PathVariable Long id) {
 		batchService.deleteBatch(id);

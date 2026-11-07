@@ -1,3 +1,4 @@
+
 package com.becoder.repository;
 
 import java.time.LocalDate;
@@ -15,52 +16,73 @@ import jakarta.persistence.LockModeType;
 
 public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Long> {
 
-	List<MedicineBatch> findByIsDeletedFalse();
+	// Get all non-deleted batches belonging to a pharmacy
+	List<MedicineBatch> findByPharmacy_IdAndIsDeletedFalse(Long pharmacyId);
 
-	Optional<MedicineBatch> findByIdAndIsDeletedFalse(Long id);
+	// Get a specific non-deleted batch belonging to a pharmacy
+	Optional<MedicineBatch> findByIdAndPharmacy_IdAndIsDeletedFalse(Long id, Long pharmacyId);
 
-	boolean existsByMedicine_IdAndBatchNumberIgnoreCaseAndIsDeletedFalse(Long medicineId, String batchNumber);
+	// Check duplicate batch number within a pharmacy
+	boolean existsByMedicine_IdAndBatchNumberIgnoreCaseAndPharmacy_IdAndIsDeletedFalse(Long medicineId,
+			String batchNumber, Long pharmacyId);
 
-	boolean existsByMedicine_IdAndBatchNumberIgnoreCaseAndIdNotAndIsDeletedFalse(Long medicineId, String batchNumber,Long id);
+	// Check duplicate batch number while excluding current batch
+	boolean existsByMedicine_IdAndBatchNumberIgnoreCaseAndIdNotAndPharmacy_IdAndIsDeletedFalse(Long medicineId,
+			String batchNumber, Long id, Long pharmacyId);
 
-	List<MedicineBatch> findByMedicine_IdAndIsDeletedFalse(Long medicineId);
+	// Get batches for a specific medicine within a pharmacy
+	List<MedicineBatch> findByMedicine_IdAndPharmacy_IdAndIsDeletedFalse(Long medicineId, Long pharmacyId);
 
-	List<MedicineBatch> findBySupplier_IdAndIsDeletedFalse(Long supplierId);
+	// Get batches for a specific supplier within a pharmacy
+	List<MedicineBatch> findBySupplier_IdAndPharmacy_IdAndIsDeletedFalse(Long supplierId, Long pharmacyId);
 
+	// Lock a pharmacy-owned batch for update
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
-	@Query("SELECT b FROM MedicineBatch b WHERE b.id = :id AND b.isDeleted = false")
-	Optional<MedicineBatch> findByIdAndIsDeletedFalseForUpdate(@Param("id") Long id);
-
-	// Find batches that have already expired
 	@Query("""
 			SELECT b FROM MedicineBatch b
-			WHERE b.isDeleted = false
+			WHERE b.id = :id
+			  AND b.pharmacy.id = :pharmacyId
+			  AND b.isDeleted = false
+			""")
+	Optional<MedicineBatch> findByIdAndPharmacyIdAndIsDeletedFalseForUpdate(@Param("id") Long id,
+			@Param("pharmacyId") Long pharmacyId);
+
+	// Find expired batches belonging to a pharmacy
+	@Query("""
+			SELECT b FROM MedicineBatch b
+			WHERE b.pharmacy.id = :pharmacyId
+			  AND b.isDeleted = false
 			  AND b.expiryDate < :today
 			ORDER BY b.expiryDate ASC
 			""")
-	List<MedicineBatch> findExpiredBatches(@Param("today") LocalDate today);
+	List<MedicineBatch> findExpiredBatches(@Param("today") LocalDate today, @Param("pharmacyId") Long pharmacyId);
 
 	// Find batches expiring between today and a specified date
 	@Query("""
 			SELECT b FROM MedicineBatch b
-			WHERE b.isDeleted = false
+			WHERE b.pharmacy.id = :pharmacyId
+			  AND b.isDeleted = false
 			  AND b.expiryDate >= :today
 			  AND b.expiryDate <= :endDate
 			ORDER BY b.expiryDate ASC
 			""")
-	List<MedicineBatch> findBatchesExpiringBetween(@Param("today") LocalDate today,@Param("endDate") LocalDate endDate);
+	List<MedicineBatch> findBatchesExpiringBetween(@Param("today") LocalDate today, @Param("endDate") LocalDate endDate,
+			@Param("pharmacyId") Long pharmacyId);
 
+	// Find usable stock grouped by medicine within a pharmacy
 	@Query("""
 			SELECT b.medicine.id, COALESCE(SUM(b.quantity), 0)
 			FROM MedicineBatch b
-			WHERE b.isDeleted = false
+			WHERE b.pharmacy.id = :pharmacyId
+			  AND b.isDeleted = false
 			  AND b.expiryDate >= :today
 			  AND b.medicine.isDeleted = false
 			  AND b.medicine.isActive = true
 			GROUP BY b.medicine.id
 			""")
-	List<Object[]> findUsableStockByMedicine(@Param("today") LocalDate today);
+	List<Object[]> findUsableStockByMedicine(@Param("today") LocalDate today, @Param("pharmacyId") Long pharmacyId);
 
+	// Find usable stock grouped by supplier and medicine
 	@Query("""
 			SELECT
 			    b.supplier.id,
@@ -72,7 +94,8 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
 			    COALESCE(SUM(b.quantity), 0),
 			    COALESCE(SUM(b.quantity * b.purchasePrice), 0)
 			FROM MedicineBatch b
-			WHERE b.isDeleted = false
+			WHERE b.pharmacy.id = :pharmacyId
+			  AND b.isDeleted = false
 			  AND b.expiryDate >= :today
 			  AND b.medicine.isDeleted = false
 			  AND b.medicine.isActive = true
@@ -87,6 +110,7 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
 			    b.medicine.brand
 			ORDER BY b.supplier.name ASC, b.medicine.name ASC
 			""")
-	List<Object[]> findUsableStockBySupplierAndMedicine(@Param("today") LocalDate today);
+	List<Object[]> findUsableStockBySupplierAndMedicine(@Param("today") LocalDate today,
+			@Param("pharmacyId") Long pharmacyId);
 
 }

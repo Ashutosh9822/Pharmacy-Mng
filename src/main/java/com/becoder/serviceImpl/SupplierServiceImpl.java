@@ -1,4 +1,3 @@
-
 package com.becoder.serviceImpl;
 
 import java.util.List;
@@ -12,126 +11,150 @@ import com.becoder.dto.SupplierResponse;
 import com.becoder.entity.Supplier;
 import com.becoder.exception.SupplierNotFoundException;
 import com.becoder.repository.SupplierRepository;
+import com.becoder.service.CurrentUserService;
 import com.becoder.service.SupplierService;
 
 @Service
 @Transactional
 public class SupplierServiceImpl implements SupplierService {
 
-	@Autowired
-	private SupplierRepository supplierRepository;
+    @Autowired
+    private SupplierRepository supplierRepository;
 
-	// 1. Create supplier
-	@Override
-	public SupplierResponse createSupplier(SupplierRequest request) {
+    @Autowired
+    private CurrentUserService currentUserService;
 
-		Supplier supplier = new Supplier();
+    // 1. Create supplier
+    @Override
+    public SupplierResponse createSupplier(SupplierRequest request) {
 
-		supplier.setName(request.getName().trim());
-		supplier.setContactPerson(request.getContactPerson());
-		supplier.setEmail(request.getEmail());
-		supplier.setPhone(request.getPhone());
-		supplier.setAddress(request.getAddress());
+        Supplier supplier = new Supplier();
 
-		// Default lead time is 7 days.
-		supplier.setLeadTimeDays(request.getLeadTimeDays() == null ? 7 : request.getLeadTimeDays());
+        supplier.setName(request.getName().trim());
+        supplier.setContactPerson(request.getContactPerson());
+        supplier.setEmail(request.getEmail());
+        supplier.setPhone(request.getPhone());
+        supplier.setAddress(request.getAddress());
 
-		// Default active status is true.
-		supplier.setActive(request.getIsActive() == null || request.getIsActive());
+        // Default lead time is 7 days.
+        supplier.setLeadTimeDays(request.getLeadTimeDays() == null ? 7 : request.getLeadTimeDays());
 
-		supplier.setDeleted(false);
+        // Default active status is true.
+        supplier.setActive(request.getIsActive() == null || request.getIsActive());
 
-		Supplier savedSupplier = supplierRepository.save(supplier);
+        supplier.setDeleted(false);
 
-		return toResponse(savedSupplier);
-	}
+        // Automatically assign the authenticated user's pharmacy.
+        supplier.setPharmacy(currentUserService.getCurrentUser().getPharmacy());
 
-	// 2. Get all non-deleted suppliers
-	@Override
-	@Transactional(readOnly = true)
-	public List<SupplierResponse> getAllSuppliers() {
-		return supplierRepository.findByIsDeletedFalse().stream().map(this::toResponse).toList();
-	}
+        Supplier savedSupplier = supplierRepository.save(supplier);
 
-	// 3. Get active, non-deleted suppliers
-	@Override
-	@Transactional(readOnly = true)
-	public List<SupplierResponse> getActiveSuppliers() {
-		return supplierRepository.findByIsActiveTrueAndIsDeletedFalse().stream().map(this::toResponse).toList();
-	}
+        return toResponse(savedSupplier);
+    }
 
-	// 4. Get supplier by ID
-	@Override
-	@Transactional(readOnly = true)
-	public SupplierResponse getSupplierById(Long id) {
-		Supplier supplier = findExistingSupplier(id);
-		return toResponse(supplier);
-	}
+    // 2. Get all non-deleted suppliers for the current pharmacy.
+    @Override
+    @Transactional(readOnly = true)
+    public List<SupplierResponse> getAllSuppliers() {
 
-	// 5. Update supplier
-	@Override
-	public SupplierResponse updateSupplier(Long id, SupplierRequest request) {
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-		Supplier supplier = findExistingSupplier(id);
+        return supplierRepository.findByPharmacy_IdAndIsDeletedFalse(pharmacyId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
 
-		supplier.setName(request.getName().trim());
+    // 3. Get active, non-deleted suppliers for the current pharmacy.
+    @Override
+    @Transactional(readOnly = true)
+    public List<SupplierResponse> getActiveSuppliers() {
 
-		// Update optional fields only when supplied.
-		if (request.getContactPerson() != null) {
-			supplier.setContactPerson(request.getContactPerson());
-		}
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-		if (request.getEmail() != null) {
-			supplier.setEmail(request.getEmail());
-		}
+        return supplierRepository
+                .findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(pharmacyId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
 
-		if (request.getPhone() != null) {
-			supplier.setPhone(request.getPhone());
-		}
+    // 4. Get supplier by ID within the current pharmacy.
+    @Override
+    @Transactional(readOnly = true)
+    public SupplierResponse getSupplierById(Long id) {
+        Supplier supplier = findExistingSupplier(id);
+        return toResponse(supplier);
+    }
 
-		if (request.getAddress() != null) {
-			supplier.setAddress(request.getAddress());
-		}
+    // 5. Update supplier within the current pharmacy.
+    @Override
+    public SupplierResponse updateSupplier(Long id, SupplierRequest request) {
 
-		if (request.getLeadTimeDays() != null) {
-			supplier.setLeadTimeDays(request.getLeadTimeDays());
-		}
+        Supplier supplier = findExistingSupplier(id);
 
-		if (request.getIsActive() != null) {
-			supplier.setActive(request.getIsActive());
-		}
+        supplier.setName(request.getName().trim());
 
-		Supplier updatedSupplier = supplierRepository.save(supplier);
+        // Update optional fields only when supplied.
+        if (request.getContactPerson() != null) {
+            supplier.setContactPerson(request.getContactPerson());
+        }
 
-		return toResponse(updatedSupplier);
-	}
+        if (request.getEmail() != null) {
+            supplier.setEmail(request.getEmail());
+        }
 
-	// 6. Soft-delete supplier
-	@Override
-	public void deleteSupplier(Long id) {
+        if (request.getPhone() != null) {
+            supplier.setPhone(request.getPhone());
+        }
 
-		Supplier supplier = findExistingSupplier(id);
+        if (request.getAddress() != null) {
+            supplier.setAddress(request.getAddress());
+        }
 
-		supplier.setDeleted(true);
-		supplier.setActive(false);
+        if (request.getLeadTimeDays() != null) {
+            supplier.setLeadTimeDays(request.getLeadTimeDays());
+        }
 
-		supplierRepository.save(supplier);
-	}
+        if (request.getIsActive() != null) {
+            supplier.setActive(request.getIsActive());
+        }
 
-	// Find only suppliers that have not been deleted.
-	private Supplier findExistingSupplier(Long id) {
+        Supplier updatedSupplier = supplierRepository.save(supplier);
 
-		return supplierRepository.findByIdAndIsDeletedFalse(id)
-				.orElseThrow(() -> new SupplierNotFoundException("Supplier not found with id: " + id));
-	}
+        return toResponse(updatedSupplier);
+    }
 
-	// Convert entity to response DTO.
-	private SupplierResponse toResponse(Supplier supplier) {
+    // 6. Soft-delete supplier within the current pharmacy.
+    @Override
+    public void deleteSupplier(Long id) {
+        Supplier supplier = findExistingSupplier(id);
+        supplier.setDeleted(true);
+        supplier.setActive(false);
+        supplierRepository.save(supplier);
+    }
 
-		return new SupplierResponse(supplier.getId(), supplier.getName(), supplier.getContactPerson(),
-				supplier.getEmail(), supplier.getPhone(), supplier.getAddress(), supplier.getLeadTimeDays(),
-				supplier.isActive(), supplier.isDeleted(), supplier.getCreatedAt(), supplier.getUpdatedOn(),
-				supplier.getUpdatedBy());
-	}
-	
+    // Find only non-deleted suppliers belonging to the current pharmacy.
+    private Supplier findExistingSupplier(Long id) {
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
+        return supplierRepository.findByIdAndPharmacy_IdAndIsDeletedFalse(id, pharmacyId).orElseThrow(() ->new SupplierNotFoundException("Supplier not found with id: " + id));
+    }
+
+    // Convert entity to response DTO.
+    private SupplierResponse toResponse(Supplier supplier) {
+
+        return new SupplierResponse(
+                supplier.getId(),
+                supplier.getName(),
+                supplier.getContactPerson(),
+                supplier.getEmail(),
+                supplier.getPhone(),
+                supplier.getAddress(),
+                supplier.getLeadTimeDays(),
+                supplier.isActive(),
+                supplier.isDeleted(),
+                supplier.getCreatedAt(),
+                supplier.getUpdatedOn(),
+                supplier.getUpdatedBy());
+    }
 }

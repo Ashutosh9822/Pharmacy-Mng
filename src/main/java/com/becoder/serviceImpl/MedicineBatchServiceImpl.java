@@ -1,5 +1,6 @@
 package com.becoder.serviceImpl;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -19,6 +20,7 @@ import com.becoder.exception.SupplierNotFoundException;
 import com.becoder.repository.MedicineBatchRepository;
 import com.becoder.repository.MedicineRepository;
 import com.becoder.repository.SupplierRepository;
+import com.becoder.service.CurrentUserService;
 import com.becoder.service.MedicineBatchService;
 
 @Service
@@ -26,184 +28,203 @@ import com.becoder.service.MedicineBatchService;
 public class MedicineBatchServiceImpl implements MedicineBatchService {
 
 	@Autowired
-    private MedicineBatchRepository batchRepository;
-	
+	private MedicineBatchRepository batchRepository;
+
 	@Autowired
-    private MedicineRepository medicineRepository;
-	
+	private MedicineRepository medicineRepository;
+
 	@Autowired
-    private SupplierRepository supplierRepository;
+	private SupplierRepository supplierRepository;
 
-    @Override
-    public MedicineBatchResponse createBatch(MedicineBatchRequest request) {
+	@Autowired
+	private CurrentUserService currentUserService;
 
-        Medicine medicine = findActiveMedicine(request.getMedicineId());
-        Supplier supplier = findActiveSupplier(request.getSupplierId());
+	@Override
+	public MedicineBatchResponse createBatch(MedicineBatchRequest request) {
 
-        validateDates(request.getManufacturingDate(), request.getExpiryDate());
-        validatePrices(request.getPurchasePrice(), request.getSellingPrice());
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-        String batchNumber = request.getBatchNumber().trim();
+		// Verify medicine belongs to the authenticated pharmacy
+		Medicine medicine = findActiveMedicine(request.getMedicineId(), pharmacyId);
 
-        if (batchRepository
-                .existsByMedicine_IdAndBatchNumberIgnoreCaseAndIsDeletedFalse(
-                        medicine.getId(), batchNumber)) {
-            throw new DuplicateMedicineBatchException(
-                    "Batch number '" + batchNumber
-                            + "' already exists for this medicine");
-        }
+		// Verify supplier belongs to the authenticated pharmacy
+		Supplier supplier = findActiveSupplier(request.getSupplierId(), pharmacyId);
 
-        MedicineBatch batch = new MedicineBatch();
-        batch.setMedicine(medicine);
-        batch.setSupplier(supplier);
-        batch.setBatchNumber(batchNumber);
-        batch.setQuantity(request.getQuantity());
-        batch.setManufacturingDate(request.getManufacturingDate());
-        batch.setExpiryDate(request.getExpiryDate());
-        batch.setPurchasePrice(request.getPurchasePrice());
-        batch.setSellingPrice(request.getSellingPrice());
-        batch.setDeleted(false);
+		validateDates(request.getManufacturingDate(), request.getExpiryDate());
 
-        return toResponse(batchRepository.save(batch));
-    }
+		validatePrices(request.getPurchasePrice(), request.getSellingPrice());
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<MedicineBatchResponse> getAllBatches() {
-        return batchRepository.findByIsDeletedFalse()
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
+		String batchNumber = request.getBatchNumber().trim();
 
-    @Override
-    @Transactional(readOnly = true)
-    public MedicineBatchResponse getBatchById(Long id) {
-        return toResponse(findExistingBatch(id));
-    }
+		boolean duplicate = batchRepository.existsByMedicine_IdAndBatchNumberIgnoreCaseAndPharmacy_IdAndIsDeletedFalse(
+				medicine.getId(), batchNumber, pharmacyId);
 
-    @Override
-    public MedicineBatchResponse updateBatch(
-            Long id, MedicineBatchRequest request) {
+		if (duplicate) {
+			throw new DuplicateMedicineBatchException(
+					"Batch number '" + batchNumber + "' already exists for this medicine in this pharmacy");
+		}
 
-        MedicineBatch batch = findExistingBatch(id);
+		MedicineBatch batch = new MedicineBatch();
 
-        Medicine medicine = findActiveMedicine(request.getMedicineId());
-        Supplier supplier = findActiveSupplier(request.getSupplierId());
+		batch.setPharmacy(currentUserService.getCurrentUser().getPharmacy());
+		batch.setMedicine(medicine);
+		batch.setSupplier(supplier);
+		batch.setBatchNumber(batchNumber);
+		batch.setQuantity(request.getQuantity());
+		batch.setManufacturingDate(request.getManufacturingDate());
+		batch.setExpiryDate(request.getExpiryDate());
+		batch.setPurchasePrice(request.getPurchasePrice());
+		batch.setSellingPrice(request.getSellingPrice());
+		batch.setDeleted(false);
 
-        validateDates(request.getManufacturingDate(), request.getExpiryDate());
-        validatePrices(request.getPurchasePrice(), request.getSellingPrice());
+		return toResponse(batchRepository.save(batch));
+	}
 
-        String batchNumber = request.getBatchNumber().trim();
+	@Override
+	@Transactional(readOnly = true)
+	public List<MedicineBatchResponse> getAllBatches() {
 
-        boolean duplicate = batchRepository
-                .existsByMedicine_IdAndBatchNumberIgnoreCaseAndIdNotAndIsDeletedFalse(
-                        medicine.getId(), batchNumber, id);
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-        if (duplicate) {
-            throw new DuplicateMedicineBatchException(
-                    "Batch number '" + batchNumber + "' already exists for this medicine");
-        }
+		return batchRepository.findByPharmacy_IdAndIsDeletedFalse(pharmacyId).stream().map(this::toResponse).toList();
+	}
 
-        batch.setMedicine(medicine);
-        batch.setSupplier(supplier);
-        batch.setBatchNumber(batchNumber);
-        batch.setQuantity(request.getQuantity());
-        batch.setManufacturingDate(request.getManufacturingDate());
-        batch.setExpiryDate(request.getExpiryDate());
-        batch.setPurchasePrice(request.getPurchasePrice());
-        batch.setSellingPrice(request.getSellingPrice());
+	@Override
+	@Transactional(readOnly = true)
+	public MedicineBatchResponse getBatchById(Long id) {
 
-        return toResponse(batchRepository.save(batch));
-    }
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-    @Override
-    public void deleteBatch(Long id) {
-        MedicineBatch batch = findExistingBatch(id);
-        batch.setDeleted(true);
-        batchRepository.save(batch);
-    }
+		return toResponse(findExistingBatch(id, pharmacyId));
+	}
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<MedicineBatchResponse> getBatchesByMedicine(Long medicineId) {
-        findActiveMedicine(medicineId);
-        return batchRepository.findByMedicine_IdAndIsDeletedFalse(medicineId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
+	@Override
+	public MedicineBatchResponse updateBatch(Long id, MedicineBatchRequest request) {
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<MedicineBatchResponse> getBatchesBySupplier(Long supplierId) {
-        findActiveSupplier(supplierId);
-        return batchRepository.findBySupplier_IdAndIsDeletedFalse(supplierId)
-                .stream()
-                .map(this::toResponse)
-                .toList();
-    }
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-    private MedicineBatch findExistingBatch(Long id) {
-        return batchRepository.findByIdAndIsDeletedFalse(id)
-                .orElseThrow(() -> new MedicineBatchNotFoundException("Medicine batch not found with id: " + id));
-    }
+		// Verify batch belongs to the authenticated pharmacy
+		MedicineBatch batch = findExistingBatch(id, pharmacyId);
 
-    private Medicine findActiveMedicine(Long medicineId) {
-        return medicineRepository.findByIdAndIsDeletedFalse(medicineId)
-                .filter(Medicine::isActive)
-                .orElseThrow(() -> new MedicineNotFoundException(
-                        "Active medicine not found with id: " + medicineId));
-    }
+		// Verify medicine and supplier ownership
+		Medicine medicine = findActiveMedicine(request.getMedicineId(), pharmacyId);
 
-    private Supplier findActiveSupplier(Long supplierId) {
-        return supplierRepository.findByIdAndIsDeletedFalse(supplierId)
-                .filter(Supplier::isActive)
-                .orElseThrow(() -> new SupplierNotFoundException(
-                        "Active supplier not found with id: " + supplierId));
-    }
+		Supplier supplier = findActiveSupplier(request.getSupplierId(), pharmacyId);
 
-    private void validateDates(LocalDate manufacturingDate, LocalDate expiryDate) {
-        if (expiryDate == null) {
-            throw new IllegalArgumentException("Expiry date is required");
-        }
+		validateDates(request.getManufacturingDate(), request.getExpiryDate());
 
-        if (manufacturingDate != null
-                && manufacturingDate.isAfter(expiryDate)) {
-            throw new IllegalArgumentException(
-                    "Manufacturing date cannot be after expiry date");
-        }
-    }
+		validatePrices(request.getPurchasePrice(), request.getSellingPrice());
 
-    private void validatePrices(java.math.BigDecimal purchasePrice,java.math.BigDecimal sellingPrice) {
-        if (purchasePrice == null || sellingPrice == null) {
-            throw new IllegalArgumentException(
-                    "Purchase price and selling price are required");
-        }
+		String batchNumber = request.getBatchNumber().trim();
 
-        if (purchasePrice.signum() < 0 || sellingPrice.signum() < 0) {
-            throw new IllegalArgumentException(
-                    "Prices cannot be negative");
-        }
-    }
+		boolean duplicate = batchRepository
+				.existsByMedicine_IdAndBatchNumberIgnoreCaseAndIdNotAndPharmacy_IdAndIsDeletedFalse(medicine.getId(),
+						batchNumber, id, pharmacyId);
 
-    private MedicineBatchResponse toResponse(MedicineBatch batch) {
+		if (duplicate) {
+			throw new DuplicateMedicineBatchException(
+					"Batch number '" + batchNumber + "' already exists for this medicine in this pharmacy");
+		}
 
-        return new MedicineBatchResponse(
-                batch.getId(),
-                batch.getMedicine().getId(),
-                batch.getMedicine().getName(),
-                batch.getSupplier().getId(),
-                batch.getSupplier().getName(),
-                batch.getBatchNumber(),
-                batch.getQuantity(),
-                batch.getManufacturingDate(),
-                batch.getExpiryDate(),
-                batch.getPurchasePrice(),
-                batch.getSellingPrice(),
-                batch.isDeleted(),
-                batch.getCreatedAt(),
-                batch.getUpdatedOn(),
-                batch.getUpdatedBy());
-    }
+		batch.setMedicine(medicine);
+		batch.setSupplier(supplier);
+		batch.setBatchNumber(batchNumber);
+		batch.setQuantity(request.getQuantity());
+		batch.setManufacturingDate(request.getManufacturingDate());
+		batch.setExpiryDate(request.getExpiryDate());
+		batch.setPurchasePrice(request.getPurchasePrice());
+		batch.setSellingPrice(request.getSellingPrice());
+
+		return toResponse(batchRepository.save(batch));
+	}
+
+	@Override
+	public void deleteBatch(Long id) {
+
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+		MedicineBatch batch = findExistingBatch(id, pharmacyId);
+
+		batch.setDeleted(true);
+
+		batchRepository.save(batch);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<MedicineBatchResponse> getBatchesByMedicine(Long medicineId) {
+
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+		findActiveMedicine(medicineId, pharmacyId);
+
+		return batchRepository.findByMedicine_IdAndPharmacy_IdAndIsDeletedFalse(medicineId, pharmacyId).stream()
+				.map(this::toResponse).toList();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<MedicineBatchResponse> getBatchesBySupplier(Long supplierId) {
+
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+		findActiveSupplier(supplierId, pharmacyId);
+
+		return batchRepository.findBySupplier_IdAndPharmacy_IdAndIsDeletedFalse(supplierId, pharmacyId).stream()
+				.map(this::toResponse).toList();
+	}
+
+	// Find a batch belonging to the current pharmacy
+	private MedicineBatch findExistingBatch(Long id, Long pharmacyId) {
+
+		return batchRepository.findByIdAndPharmacy_IdAndIsDeletedFalse(id, pharmacyId)
+				.orElseThrow(() -> new MedicineBatchNotFoundException("Medicine batch not found with id: " + id));
+	}
+
+	// Find an active medicine belonging to the current pharmacy
+	private Medicine findActiveMedicine(Long medicineId, Long pharmacyId) {
+
+		return medicineRepository.findByIdAndPharmacy_IdAndIsDeletedFalse(medicineId, pharmacyId)
+				.filter(Medicine::isActive)
+				.orElseThrow(() -> new MedicineNotFoundException("Active medicine not found with id: " + medicineId));
+	}
+
+	// Find an active supplier belonging to the current pharmacy
+	private Supplier findActiveSupplier(Long supplierId, Long pharmacyId) {
+
+		return supplierRepository.findByIdAndPharmacy_IdAndIsDeletedFalse(supplierId, pharmacyId)
+				.filter(Supplier::isActive)
+				.orElseThrow(() -> new SupplierNotFoundException("Active supplier not found with id: " + supplierId));
+	}
+
+	private void validateDates(LocalDate manufacturingDate, LocalDate expiryDate) {
+
+		if (expiryDate == null) {
+			throw new IllegalArgumentException("Expiry date is required");
+		}
+
+		if (manufacturingDate != null && manufacturingDate.isAfter(expiryDate)) {
+
+			throw new IllegalArgumentException("Manufacturing date cannot be after expiry date");
+		}
+	}
+
+	private void validatePrices(BigDecimal purchasePrice, BigDecimal sellingPrice) {
+
+		if (purchasePrice == null || sellingPrice == null) {
+			throw new IllegalArgumentException("Purchase price and selling price are required");
+		}
+
+		if (purchasePrice.signum() < 0 || sellingPrice.signum() < 0) {
+			throw new IllegalArgumentException("Prices cannot be negative");
+		}
+	}
+
+	private MedicineBatchResponse toResponse(MedicineBatch batch) {
+
+		return new MedicineBatchResponse(batch.getId(), batch.getMedicine().getId(), batch.getMedicine().getName(),
+				batch.getSupplier().getId(), batch.getSupplier().getName(), batch.getBatchNumber(), batch.getQuantity(),
+				batch.getManufacturingDate(), batch.getExpiryDate(), batch.getPurchasePrice(), batch.getSellingPrice(),
+				batch.isDeleted(), batch.getCreatedAt(), batch.getUpdatedOn(), batch.getUpdatedBy());
+	}
 }

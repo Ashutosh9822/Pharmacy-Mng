@@ -12,120 +12,158 @@ import com.becoder.entity.Category;
 import com.becoder.exception.CategoryNotFoundException;
 import com.becoder.repository.CategoryRepository;
 import com.becoder.service.CategoryService;
+import com.becoder.service.CurrentUserService;
 
 @Service
 @Transactional
 public class CategoryServiceImpl implements CategoryService {
 
-	@Autowired	
-	private CategoryRepository categoryRepository;
+    @Autowired
+    private CategoryRepository categoryRepository;
 
-	@Override
-	public CategoryResponse createCategory(CategoryRequest request) {
+    @Autowired
+    private CurrentUserService currentUserService;
 
-		String name = request.getName().trim();
+    @Override
+    public CategoryResponse createCategory(CategoryRequest request) {
 
-		if (categoryRepository.existsByNameIgnoreCaseAndIsDeletedFalse(name)) {
-			throw new IllegalArgumentException("An active record with this category name already exists");
-		}
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-		Category category = new Category();
-		category.setName(name);
-		category.setDescription(request.getDescription());
+        String name = request.getName().trim();
 
-		// New categories are active by default.
-		category.setActive(request.getIsActive() == null || request.getIsActive());
+        // Check duplicate category name within the current pharmacy
+        if (categoryRepository.existsByNameIgnoreCaseAndPharmacy_Id(request.getName().trim(), pharmacyId)) {
+            throw new IllegalArgumentException("An active record with this category name already exists");
+        }
 
-		category.setDeleted(false);
+        Category category = new Category();
 
-		Category saved = categoryRepository.save(category);
+        category.setName(name);
+        category.setDescription(request.getDescription());
 
-		return toResponse(saved);
-	}
+        // Automatically assign the authenticated user's pharmacy
+        category.setPharmacy(currentUserService.getCurrentUser().getPharmacy());
 
-	@Override
-	@Transactional(readOnly = true)
-	public List<CategoryResponse> getAllCategories() {
+        // New categories are active by default
+        category.setActive(request.getIsActive() == null || request.getIsActive());
 
-		return categoryRepository.findByIsDeletedFalse().stream().map(this::toResponse).toList();
-	}
+        category.setDeleted(false);
 
-	@Override
-	@Transactional(readOnly = true)
-	public CategoryResponse getCategoryById(Long id) {
+        Category saved = categoryRepository.save(category);
 
-		return toResponse(findCategory(id));
-	}
+        return toResponse(saved);
+    }
 
-	@Override
-	public CategoryResponse updateCategory(Long id, CategoryRequest request) {
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> getAllCategories() {
 
-		Category category = findCategory(id);
-		String name = request.getName().trim();
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-		boolean duplicate = categoryRepository.existsByNameIgnoreCaseAndIsDeletedFalse(name);
+        return categoryRepository
+                .findByPharmacy_IdAndIsDeletedFalse(pharmacyId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
 
-		if (duplicate && !category.getName().equalsIgnoreCase(name)) {
-			throw new IllegalArgumentException("An active record with this category name already exists");
-		}
+    @Override
+    @Transactional(readOnly = true)
+    public CategoryResponse getCategoryById(Long id) {
+        return toResponse(findCategory(id));
+    }
 
-		category.setName(name);
-		category.setDescription(request.getDescription());
+    @Override
+    public CategoryResponse updateCategory(Long id, CategoryRequest request) {
 
-		// If omitted, preserve the existing active status.
-		if (request.getIsActive() != null) {
-			category.setActive(request.getIsActive());
-		}
+        Category category = findCategory(id);
 
-		// JPA's @PreUpdate updates updatedOn.
-		Category saved = categoryRepository.save(category);
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-		return toResponse(saved);
-	}
+        String name = request.getName().trim();
 
-	@Override
-	public void deleteCategory(Long id) {
+        boolean duplicate = categoryRepository.existsByNameIgnoreCaseAndPharmacy_Id(request.getName().trim(), pharmacyId);
 
-		Category category = findCategory(id);
+        if (duplicate && !category.getName().equalsIgnoreCase(name)) {
+            throw new IllegalArgumentException("An active record with this category name already exists");
+        }
 
-		// Soft delete: retain the database record.
-		category.setDeleted(true);
-		category.setActive(false);
+        category.setName(name);
+        category.setDescription(request.getDescription());
 
-		categoryRepository.save(category);
-	}
+        // If omitted, preserve the existing active status
+        if (request.getIsActive() != null) {
+            category.setActive(request.getIsActive());
+        }
 
-	private Category findCategory(Long id) {
-		return categoryRepository.findByIdAndIsDeletedFalse(id).orElseThrow(() -> new CategoryNotFoundException("Category not found with id: " + id));
-	}
+        Category saved = categoryRepository.save(category);
 
-	private CategoryResponse toResponse(Category category) {
+        return toResponse(saved);
+    }
 
-		return new CategoryResponse(category.getId(), category.getName(), category.getDescription(),
-				category.isActive(), category.isDeleted(), category.getCreatedAt(), category.getUpdatedOn(),
-				category.getUpdatedBy());
-	}
+    @Override
+    public void deleteCategory(Long id) {
 
-	@Override
-	public CategoryResponse restoreCategory(Long id) {
-		 Category category = categoryRepository.findByIdAndIsDeletedTrue(id).orElseThrow(() -> new CategoryNotFoundException(
-		                    "Deleted category not found with id: " + id
-		               )
-		          );
-		 
-		    category.setDeleted(false);
-		    category.setActive(true);
+        Category category = findCategory(id);
 
-		    Category restoredCategory = categoryRepository.save(category);
+        // Soft delete: retain the database record
+        category.setDeleted(true);
+        category.setActive(false);
 
-		    return toResponse(restoredCategory);
-	}
+        categoryRepository.save(category);
+    }
 
-	@Override
-	public List<CategoryResponse> getActiveCategories() {
-		 return categoryRepository.findByIsActiveTrueAndIsDeletedFalse().stream().map(this::toResponse).toList();
-	}
-	
-	
-	
+    private Category findCategory(Long id) {
+
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+        return categoryRepository
+                .findByIdAndPharmacy_IdAndIsDeletedFalse(id, pharmacyId)
+                .orElseThrow(() -> new CategoryNotFoundException("Category not found with id: " + id));
+    }
+
+    @Override
+    public CategoryResponse restoreCategory(Long id) {
+
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+        Category category = categoryRepository
+                .findByIdAndPharmacy_IdAndIsDeletedTrue(id, pharmacyId)
+                .orElseThrow(() ->
+                        new CategoryNotFoundException(
+                                "Deleted category not found with id: " + id));
+
+        category.setDeleted(false);
+        category.setActive(true);
+
+        Category restoredCategory = categoryRepository.save(category);
+
+        return toResponse(restoredCategory);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CategoryResponse> getActiveCategories() {
+
+        Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+        return categoryRepository
+                .findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(pharmacyId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private CategoryResponse toResponse(Category category) {
+
+        return new CategoryResponse(
+                category.getId(),
+                category.getName(),
+                category.getDescription(),
+                category.isActive(),
+                category.isDeleted(),
+                category.getCreatedAt(),
+                category.getUpdatedOn(),
+                category.getUpdatedBy());
+    }
 }

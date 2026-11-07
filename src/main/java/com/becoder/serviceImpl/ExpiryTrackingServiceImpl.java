@@ -3,6 +3,7 @@ package com.becoder.serviceImpl;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import com.becoder.dto.ExpiryBatchResponse;
 import com.becoder.entity.Medicine;
 import com.becoder.entity.MedicineBatch;
 import com.becoder.repository.MedicineBatchRepository;
+import com.becoder.service.CurrentUserService;
 import com.becoder.service.ExpiryTrackingService;
 
 @Service
@@ -21,36 +23,52 @@ public class ExpiryTrackingServiceImpl implements ExpiryTrackingService {
 	@Autowired
 	private MedicineBatchRepository batchRepository;
 
+	@Autowired
+	private CurrentUserService currentUserService;
+
 	@Override
 	public List<ExpiryBatchResponse> getExpiredBatches() {
+
 		LocalDate today = LocalDate.now();
-		return batchRepository.findExpiredBatches(today).stream().map(batch -> toResponse(batch, today)).toList();
+
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+		return batchRepository.findExpiredBatches(today, pharmacyId).stream().map(batch -> toResponse(batch, today))
+				.toList();
 	}
 
 	@Override
 	public List<ExpiryBatchResponse> getExpiringSoonBatches(int days) {
+
 		if (days < 1 || days > 365) {
 			throw new IllegalArgumentException("Days must be between 1 and 365");
 		}
-		
+
 		LocalDate today = LocalDate.now();
 		LocalDate endDate = today.plusDays(days);
 
-		return batchRepository.findBatchesExpiringBetween(today, endDate).stream().map(batch -> toResponse(batch, today)).toList();
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+		return batchRepository.findBatchesExpiringBetween(today, endDate, pharmacyId).stream()
+				.map(batch -> toResponse(batch, today)).toList();
 	}
 
 	@Override
 	public List<ExpiryBatchResponse> getExpiryReport() {
+
 		LocalDate today = LocalDate.now();
 
 		// Include expired batches and batches expiring
 		// within the next 90 days.
 		LocalDate endDate = today.plusDays(90);
 
-		List<MedicineBatch> expired = batchRepository.findExpiredBatches(today);
-		List<MedicineBatch> expiringSoon = batchRepository.findBatchesExpiringBetween(today, endDate);
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-		return java.util.stream.Stream.concat(expired.stream(), expiringSoon.stream()).map(batch -> toResponse(batch, today)).toList();
+		List<MedicineBatch> expired = batchRepository.findExpiredBatches(today, pharmacyId);
+
+		List<MedicineBatch> expiringSoon = batchRepository.findBatchesExpiringBetween(today, endDate, pharmacyId);
+
+		return Stream.concat(expired.stream(), expiringSoon.stream()).map(batch -> toResponse(batch, today)).toList();
 	}
 
 	private ExpiryBatchResponse toResponse(MedicineBatch batch, LocalDate today) {

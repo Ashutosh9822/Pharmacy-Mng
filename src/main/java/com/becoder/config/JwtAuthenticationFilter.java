@@ -3,6 +3,7 @@ package com.becoder.config;
 
 import java.io.IOException;
 
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -10,7 +11,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
+import org.springframework.security.core.AuthenticationException;
 import com.becoder.service.JwtService;
 
 import io.jsonwebtoken.JwtException;
@@ -61,7 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 				}
 			}
 
-		} catch (JwtException | IllegalArgumentException ex) {
+		} catch (JwtException | IllegalArgumentException | AuthenticationException ex) {
 			SecurityContextHolder.clearContext();
 			response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or expired JWT token");
 			return;

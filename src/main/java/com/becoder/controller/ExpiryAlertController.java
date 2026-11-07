@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.becoder.dto.ExpiryAlertResponse;
+import com.becoder.service.AlertValidationService;
 import com.becoder.service.ExpiryAlertService;
 
 @RestController
@@ -18,9 +19,13 @@ public class ExpiryAlertController {
 
 	@Autowired
     private ExpiryAlertService expiryAlertService;
+	
+	@Autowired
+	private AlertValidationService alertValidationService;
 
     @GetMapping
     public List<ExpiryAlertResponse> getExpiryAlerts(@RequestParam(defaultValue = "30") int days) {
+    	alertValidationService.validateAlertParameters(days, 0, 1);
         return expiryAlertService.getExpiryAlerts(days);
     }
     

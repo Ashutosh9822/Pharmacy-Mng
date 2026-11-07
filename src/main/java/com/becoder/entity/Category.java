@@ -5,22 +5,34 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "categories")
+@Table(
+    name = "categories",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_categories_pharmacy_name",
+            columnNames = {"pharmacy_id", "name"}
+        )
+    }
+)
 public class Category {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, length = 100)
     private String name;
 
     @Column(length = 255)
@@ -37,9 +49,13 @@ public class Category {
 
     @Column(name = "updated_on")
     private LocalDateTime updatedOn;
-
+    
     @Column(name = "updated_by")
     private Long updatedBy;
+    
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "pharmacy_id", nullable = false)
+    private Pharmacy pharmacy;
 
     public Category() {
     }
@@ -58,6 +74,14 @@ public class Category {
     @PreUpdate
     public void preUpdate() {
         updatedOn = LocalDateTime.now();
+    }
+    
+    public Pharmacy getPharmacy() {
+        return pharmacy;
+    }
+
+    public void setPharmacy(Pharmacy pharmacy) {
+        this.pharmacy = pharmacy;
     }
 
     public Long getId() {

@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,7 @@ public class SupplierController {
 	private SupplierService supplierService;
 
 	// 1. Create supplier
+	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/create-supplier")
 	public ResponseEntity<SupplierResponse> createSupplier(@Valid @RequestBody SupplierRequest request) {
 		SupplierResponse response = supplierService.createSupplier(request);
@@ -56,12 +58,14 @@ public class SupplierController {
 	}
 
 	// 5. Update supplier
+	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/{id}")
 	public ResponseEntity<SupplierResponse> updateSupplier(@PathVariable Long id,@Valid @RequestBody SupplierRequest request) {
 		return ResponseEntity.ok(supplierService.updateSupplier(id, request));
 	}
 
 	// 6. Soft-delete supplier
+	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteSupplier(@PathVariable Long id) {
 		supplierService.deleteSupplier(id);

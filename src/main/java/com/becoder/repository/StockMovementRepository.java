@@ -1,3 +1,4 @@
+
 package com.becoder.repository;
 
 import java.util.List;
@@ -8,8 +9,9 @@ import com.becoder.entity.StockMovement;
 
 public interface StockMovementRepository extends JpaRepository<StockMovement, Long> {
 
-	List<StockMovement> findByBatch_IdOrderByCreatedAtDesc(Long batchId);
+	// Get movements for a particular batch belonging to a pharmacy.
+	List<StockMovement> findByBatch_IdAndBatch_Pharmacy_IdOrderByCreatedAtDesc(Long batchId, Long pharmacyId);
 
-	List<StockMovement> findAllByOrderByCreatedAtDesc();
-
+	// Get all movements belonging to a particular pharmacy.
+	List<StockMovement> findByBatch_Pharmacy_IdOrderByCreatedAtDesc(Long pharmacyId);
 }

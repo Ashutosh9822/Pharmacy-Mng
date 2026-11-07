@@ -14,6 +14,7 @@ import com.becoder.dto.InventoryOptimizationResponse;
 import com.becoder.entity.Medicine;
 import com.becoder.repository.MedicineBatchRepository;
 import com.becoder.repository.MedicineRepository;
+import com.becoder.service.CurrentUserService;
 import com.becoder.service.InventoryOptimizationService;
 
 @Service
@@ -22,9 +23,12 @@ public class InventoryOptimizationServiceImpl implements InventoryOptimizationSe
 
 	@Autowired
 	private MedicineBatchRepository batchRepository;
-	
+
 	@Autowired
 	private MedicineRepository medicineRepository;
+
+	@Autowired
+	private CurrentUserService currentUserService;
 
 	@Override
 	public List<InventoryOptimizationResponse> getInventoryReport(int lowStockThreshold, int targetStock) {
@@ -33,12 +37,18 @@ public class InventoryOptimizationServiceImpl implements InventoryOptimizationSe
 
 		LocalDate today = LocalDate.now();
 
-		List<Object[]> stockRows = batchRepository.findUsableStockByMedicine(today);
+		// Get the authenticated user's pharmacy ID.
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
+
+		// Fetch usable stock belonging only to this pharmacy.
+		List<Object[]> stockRows = batchRepository.findUsableStockByMedicine(today, pharmacyId);
 
 		Map<Long, Integer> stockByMedicine = new HashMap<>();
 
 		for (Object[] row : stockRows) {
+
 			Long medicineId = ((Number) row[0]).longValue();
+
 			Integer quantity = ((Number) row[1]).intValue();
 
 			stockByMedicine.put(medicineId, quantity);
@@ -46,11 +56,15 @@ public class InventoryOptimizationServiceImpl implements InventoryOptimizationSe
 
 		List<InventoryOptimizationResponse> responses = new ArrayList<>();
 
-		List<Medicine> medicines = medicineRepository.findByIsActiveTrueAndIsDeletedFalse();
+		// Fetch only active medicines belonging to this pharmacy.
+		List<Medicine> medicines = medicineRepository.findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(pharmacyId);
 
 		for (Medicine medicine : medicines) {
+
 			int stock = stockByMedicine.getOrDefault(medicine.getId(), 0);
+
 			InventoryOptimizationResponse response = buildResponse(medicine, stock, lowStockThreshold, targetStock);
+
 			responses.add(response);
 		}
 
@@ -59,7 +73,8 @@ public class InventoryOptimizationServiceImpl implements InventoryOptimizationSe
 
 	@Override
 	public List<InventoryOptimizationResponse> getLowStockMedicines(int lowStockThreshold, int targetStock) {
-		return getInventoryReport(lowStockThreshold, targetStock).stream().filter(response -> "LOW_STOCK".equals(response.getStockStatus())).toList();
+		return getInventoryReport(lowStockThreshold, targetStock).stream()
+				.filter(response -> "LOW_STOCK".equals(response.getStockStatus())).toList();
 	}
 
 	private InventoryOptimizationResponse buildResponse(Medicine medicine, int stock, int lowStockThreshold,int targetStock) {
@@ -83,6 +98,7 @@ public class InventoryOptimizationServiceImpl implements InventoryOptimizationSe
 	}
 
 	private void validateParameters(int lowStockThreshold, int targetStock) {
+
 		if (lowStockThreshold < 0) {
 			throw new IllegalArgumentException("Low-stock threshold cannot be negative");
 		}

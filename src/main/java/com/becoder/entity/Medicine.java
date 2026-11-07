@@ -1,4 +1,3 @@
-
 package com.becoder.entity;
 
 import java.time.LocalDateTime;
@@ -14,9 +13,18 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "medicines")
+@Table(
+    name = "medicines",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_medicine_pharmacy_barcode",
+            columnNames = {"pharmacy_id", "barcode"}
+        )
+    }
+)
 public class Medicine {
 
     @Id
@@ -38,15 +46,21 @@ public class Medicine {
     @Column(length = 50)
     private String strength;
 
-    @Column(unique = true, length = 100)
+    @Column(length = 100)
     private String barcode;
 
     @Column(length = 500)
     private String description;
 
+    // Category relationship
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
+
+    // Pharmacy relationship
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "pharmacy_id", nullable = false)
+    private Pharmacy pharmacy;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true;
@@ -152,6 +166,14 @@ public class Medicine {
 
     public void setCategory(Category category) {
         this.category = category;
+    }
+
+    public Pharmacy getPharmacy() {
+        return pharmacy;
+    }
+
+    public void setPharmacy(Pharmacy pharmacy) {
+        this.pharmacy = pharmacy;
     }
 
     public boolean isActive() {

@@ -9,14 +9,18 @@ import com.becoder.entity.Medicine;
 
 public interface MedicineRepository extends JpaRepository<Medicine, Long> {
 
-	public List<Medicine> findByIsDeletedFalse();
+	// Find all non-deleted medicines belonging to a pharmacy.
+	List<Medicine> findByPharmacy_IdAndIsDeletedFalse(Long pharmacyId);
 
-	public Optional<Medicine> findByIdAndIsDeletedFalse(Long id);
+	// Find a medicine by ID within a pharmacy.
+	Optional<Medicine> findByIdAndPharmacy_IdAndIsDeletedFalse(Long id, Long pharmacyId);
 
-	public List<Medicine> findByIsActiveTrueAndIsDeletedFalse();
+	// Find active, non-deleted medicines within a pharmacy.
+	List<Medicine> findByPharmacy_IdAndIsActiveTrueAndIsDeletedFalse(Long pharmacyId);
 
-	public boolean existsByBarcodeIgnoreCaseAndIsDeletedFalse(String barcode);
+	// Check barcode duplication within the same pharmacy.
+	boolean existsByBarcodeIgnoreCaseAndPharmacy_IdAndIsDeletedFalse(String barcode, Long pharmacyId);
 
-	public boolean existsByBarcodeIgnoreCaseAndIdNotAndIsDeletedFalse(String barcode, Long id);
-
+	// Check barcode duplication during update, excluding the current medicine.
+	boolean existsByBarcodeIgnoreCaseAndIdNotAndPharmacy_IdAndIsDeletedFalse(String barcode, Long id, Long pharmacyId);
 }

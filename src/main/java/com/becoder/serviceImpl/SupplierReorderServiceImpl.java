@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.becoder.dto.SupplierReorderResponse;
 import com.becoder.repository.MedicineBatchRepository;
+import com.becoder.service.CurrentUserService;
 import com.becoder.service.SupplierReorderService;
 
 @Service
@@ -19,97 +20,101 @@ import com.becoder.service.SupplierReorderService;
 public class SupplierReorderServiceImpl implements SupplierReorderService {
 
 	@Autowired
-    private MedicineBatchRepository batchRepository;
+	private MedicineBatchRepository batchRepository;
 
-    @Override
-    public List<SupplierReorderResponse> getReorderRecommendations(int lowStockThreshold, int targetStock) {
+	@Autowired
+	private CurrentUserService currentUserService;
 
-        validateParameters(lowStockThreshold, targetStock);
+	@Override
+	public List<SupplierReorderResponse> getReorderRecommendations(int lowStockThreshold, int targetStock) {
 
-        LocalDate today = LocalDate.now();
+		validateParameters(lowStockThreshold, targetStock);
 
-        List<Object[]> rows =
-                batchRepository.findUsableStockBySupplierAndMedicine(today);
+		LocalDate today = LocalDate.now();
 
-        List<SupplierReorderResponse> responses = new ArrayList<>();
+		// Get the authenticated user's pharmacy ID.
+		Long pharmacyId = currentUserService.getCurrentPharmacyId();
 
-        for (Object[] row : rows) {
-            int stock = ((Number) row[6]).intValue();
+		// Fetch reorder data only for the current pharmacy.
+		List<Object[]> rows = batchRepository.findUsableStockBySupplierAndMedicine(today, pharmacyId);
 
-            // Only recommend reordering medicines at or below threshold.
-            if (stock > lowStockThreshold) {
-                continue;
-            }
+		List<SupplierReorderResponse> responses = new ArrayList<>();
 
-            responses.add(buildResponse(
-                    row, stock, lowStockThreshold, targetStock));
-        }
+		for (Object[] row : rows) {
 
-        return responses;
-    }
+			int stock = ((Number) row[6]).intValue();
 
-    @Override
-    public List<SupplierReorderResponse> getReorderRecommendationsBySupplier(Long supplierId,int lowStockThreshold,int targetStock) {
-        if (supplierId == null || supplierId < 1) {
-            throw new IllegalArgumentException(
-                    "Supplier ID must be a positive number");
-        }
-        
-        return getReorderRecommendations(lowStockThreshold, targetStock)
-                .stream()
-                .filter(item -> supplierId.equals(item.getSupplierId()))
-                .toList();
-    }
+			// Only recommend reordering medicines at or below threshold.
+			if (stock > lowStockThreshold) {
+				continue;
+			}
 
-    private SupplierReorderResponse buildResponse(Object[] row,int stock,int lowStockThreshold,int targetStock) {
-        BigDecimal totalPurchaseValue = row[7] == null ? BigDecimal.ZERO : new BigDecimal(row[7].toString());
+			responses.add(buildResponse(row, stock, lowStockThreshold, targetStock));
+		}
 
-        BigDecimal averagePrice = stock > 0 ? totalPurchaseValue.divide(
-                        BigDecimal.valueOf(stock),
-                        2,
-                        RoundingMode.HALF_UP)
-                : BigDecimal.ZERO;
+		return responses;
+	}
 
-        int reorderQuantity = Math.max(0, targetStock - stock);
+	@Override
+	public List<SupplierReorderResponse> getReorderRecommendationsBySupplier(Long supplierId, int lowStockThreshold,int targetStock) {
+		if (supplierId == null || supplierId < 1) {
+			throw new IllegalArgumentException("Supplier ID must be a positive number");
+		}
 
-        BigDecimal reorderCost = averagePrice.multiply(
-                BigDecimal.valueOf(reorderQuantity))
-                .setScale(2, RoundingMode.HALF_UP);
+		return getReorderRecommendations(lowStockThreshold, targetStock).stream()
+				.filter(item -> supplierId.equals(item.getSupplierId())).toList();
+	}
 
-        SupplierReorderResponse response = new SupplierReorderResponse();
-        response.setSupplierId(((Number) row[0]).longValue());
-        response.setSupplierName((String) row[1]);
-        response.setMedicineId(((Number) row[2]).longValue());
-        response.setMedicineName((String) row[3]);
-        response.setGenericName((String) row[4]);
-        response.setBrand((String) row[5]);
-        response.setTotalAvailableStock(stock);
-        response.setLowStockThreshold(lowStockThreshold);
-        response.setTargetStock(targetStock);
-        response.setSuggestedReorderQuantity(reorderQuantity);
-        response.setWeightedAveragePurchasePrice(averagePrice);
-        response.setEstimatedReorderCost(reorderCost);
+	private SupplierReorderResponse buildResponse(Object[] row, int stock, int lowStockThreshold, int targetStock) {
 
-        if (stock == 0) {
-            response.setReorderPriority("CRITICAL");
-        } else {
-            response.setReorderPriority("HIGH");
-        }
+		BigDecimal totalPurchaseValue = row[7] == null ? BigDecimal.ZERO : new BigDecimal(row[7].toString());
 
-        return response;
-    }
+		BigDecimal averagePrice = stock > 0
+				? totalPurchaseValue.divide(BigDecimal.valueOf(stock), 2, RoundingMode.HALF_UP)
+				: BigDecimal.ZERO;
 
-    private void validateParameters(int lowStockThreshold, int targetStock) {
-        if (lowStockThreshold < 0) {
-            throw new IllegalArgumentException("Low-stock threshold cannot be negative");
-        }
+		int reorderQuantity = Math.max(0, targetStock - stock);
 
-        if (targetStock < 1) {
-            throw new IllegalArgumentException("Target stock must be at least 1");
-        }
+		BigDecimal reorderCost = averagePrice.multiply(BigDecimal.valueOf(reorderQuantity)).setScale(2,RoundingMode.HALF_UP);
 
-        if (targetStock <= lowStockThreshold) {
-            throw new IllegalArgumentException("Target stock must exceed the low-stock threshold");
-        }
-    }
+		SupplierReorderResponse response = new SupplierReorderResponse();
+
+		response.setSupplierId(((Number) row[0]).longValue());
+		response.setSupplierName((String) row[1]);
+		response.setMedicineId(((Number) row[2]).longValue());
+		response.setMedicineName((String) row[3]);
+		response.setGenericName((String) row[4]);
+		response.setBrand((String) row[5]);
+
+		response.setTotalAvailableStock(stock);
+		response.setLowStockThreshold(lowStockThreshold);
+		response.setTargetStock(targetStock);
+		response.setSuggestedReorderQuantity(reorderQuantity);
+
+		response.setWeightedAveragePurchasePrice(averagePrice);
+		response.setEstimatedReorderCost(reorderCost);
+
+		if (stock == 0) {
+			response.setReorderPriority("CRITICAL");
+		} else {
+			response.setReorderPriority("HIGH");
+		}
+
+		return response;
+	}
+
+	private void validateParameters(int lowStockThreshold, int targetStock) {
+
+		if (lowStockThreshold < 0) {
+			throw new IllegalArgumentException("Low-stock threshold cannot be negative");
+		}
+
+		if (targetStock < 1) {
+			throw new IllegalArgumentException("Target stock must be at least 1");
+		}
+
+		if (targetStock <= lowStockThreshold) {
+			throw new IllegalArgumentException("Target stock must exceed the low-stock threshold");
+		}
+	}
 }
