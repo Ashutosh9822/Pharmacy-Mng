@@ -1,5 +1,6 @@
 package com.becoder.serviceImpl;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,8 @@ public class MedicineServiceImpl implements MedicineService {
 		medicine.setBarcode(normalizeBarcode(request.getBarcode()));
 		medicine.setDescription(request.getDescription());
 		medicine.setCategory(category);
+		medicine.setHsnCode(request.getHsnCode());
+		medicine.setGstRate(request.getGstRate() != null ? request.getGstRate() : BigDecimal.ZERO);
 
 		// Automatically assign authenticated user's pharmacy.
 		medicine.setPharmacy(currentUserService.getCurrentUser().getPharmacy());
@@ -121,6 +124,14 @@ public class MedicineServiceImpl implements MedicineService {
 		medicine.setBarcode(normalizeBarcode(request.getBarcode()));
 		medicine.setDescription(request.getDescription());
 		medicine.setCategory(category);
+		
+		if (request.getHsnCode() != null) {
+		    medicine.setHsnCode(request.getHsnCode());
+		}
+
+		if (request.getGstRate() != null) {
+		    medicine.setGstRate(request.getGstRate());
+		}
 
 		if (request.getIsActive() != null) {
 			medicine.setActive(request.getIsActive());
@@ -195,11 +206,28 @@ public class MedicineServiceImpl implements MedicineService {
 
 	// Convert entity to response DTO.
 	private MedicineResponse toResponse(Medicine medicine) {
+		
+		MedicineResponse response = new MedicineResponse(
+		        medicine.getId(),
+		        medicine.getName(),
+		        medicine.getGenericName(),
+		        medicine.getBrand(),
+		        medicine.getDosageForm(),
+		        medicine.getStrength(),
+		        medicine.getBarcode(),
+		        medicine.getDescription(),
+		        medicine.getCategory().getId(),
+		        medicine.getCategory().getName(),
+		        medicine.isActive(),
+		        medicine.isDeleted(),
+		        medicine.getCreatedAt(),
+		        medicine.getUpdatedOn(),
+		        medicine.getUpdatedBy()
+		);
 
-		return new MedicineResponse(medicine.getId(), medicine.getName(), medicine.getGenericName(),
-				medicine.getBrand(), medicine.getDosageForm(), medicine.getStrength(), medicine.getBarcode(),
-				medicine.getDescription(), medicine.getCategory().getId(), medicine.getCategory().getName(),
-				medicine.isActive(), medicine.isDeleted(), medicine.getCreatedAt(), medicine.getUpdatedOn(),
-				medicine.getUpdatedBy());
+		response.setHsnCode(medicine.getHsnCode());
+		response.setGstRate(medicine.getGstRate());
+		
+		return response;
 	}
 }

@@ -1,4 +1,3 @@
-
 package com.becoder.entity;
 
 import java.time.LocalDateTime;
@@ -33,7 +32,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "pharmacy_id", nullable = false)
     private Pharmacy pharmacy;
@@ -53,6 +52,13 @@ public class User {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    // Staff contact details
+    @Column(name = "phone_number", length = 15)
+    private String phoneNumber;
+
+    @Column(length = 255)
+    private String address;
 
     @Column(name = "created_on", nullable = false, updatable = false)
     private LocalDateTime createdOn;
@@ -82,7 +88,7 @@ public class User {
     public void setId(Long id) {
         this.id = id;
     }
-    
+
     public Pharmacy getPharmacy() {
         return pharmacy;
     }
@@ -129,6 +135,22 @@ public class User {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
     }
 
     public LocalDateTime getCreatedOn() {

@@ -1,5 +1,6 @@
 package com.becoder.entity;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -76,6 +77,12 @@ public class Medicine {
 
     @Column(name = "updated_by")
     private Long updatedBy;
+    
+    @Column(name = "hsn_code", length = 20)
+    private String hsnCode;
+
+    @Column(name = "gst_rate", nullable = false, precision = 5, scale = 2)
+    private BigDecimal gstRate = BigDecimal.ZERO;
 
     public Medicine() {
     }
@@ -96,7 +103,23 @@ public class Medicine {
         updatedOn = LocalDateTime.now();
     }
 
-    public Long getId() {
+    public String getHsnCode() {
+		return hsnCode;
+	}
+
+	public void setHsnCode(String hsnCode) {
+		this.hsnCode = hsnCode;
+	}
+
+	public BigDecimal getGstRate() {
+		return gstRate;
+	}
+
+	public void setGstRate(BigDecimal gstRate) {
+		this.gstRate = gstRate;
+	}
+
+	public Long getId() {
         return id;
     }
 

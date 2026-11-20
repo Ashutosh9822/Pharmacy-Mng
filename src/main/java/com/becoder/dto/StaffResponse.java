@@ -14,6 +14,10 @@ public class StaffResponse {
     private boolean active;
     
     private Long pharmacyId;
+    
+    private String phoneNumber;
+    
+    private String address;
 
     public StaffResponse() {
     }
@@ -24,7 +28,9 @@ public class StaffResponse {
             String email,
             String role,
             boolean active,
-            Long pharmacyId) {
+            Long pharmacyId,
+            String phoneNumber,
+            String address) {
 
         this.id = id;
         this.fullName = fullName;
@@ -32,6 +38,8 @@ public class StaffResponse {
         this.role = role;
         this.active = active;
         this.pharmacyId = pharmacyId;
+        this.phoneNumber = phoneNumber;
+        this.address = address;
     }
 
     public Long getId() {
@@ -80,5 +88,21 @@ public class StaffResponse {
 
     public void setPharmacyId(Long pharmacyId) {
         this.pharmacyId = pharmacyId;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
     }
 }

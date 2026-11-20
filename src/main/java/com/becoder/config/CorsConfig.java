@@ -19,7 +19,7 @@ public class CorsConfig {
 
         // Allow the React/Vite fronted
         configuration.setAllowedOrigins(
-            Arrays.asList("http://localhost:5173")
+            Arrays.asList("http://localhost:3000")
         );
 
         // Allow required HTTP methods

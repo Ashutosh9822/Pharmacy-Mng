@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.becoder.entity.Medicine;
 
@@ -23,4 +25,20 @@ public interface MedicineRepository extends JpaRepository<Medicine, Long> {
 
 	// Check barcode duplication during update, excluding the current medicine.
 	boolean existsByBarcodeIgnoreCaseAndIdNotAndPharmacy_IdAndIsDeletedFalse(String barcode, Long id, Long pharmacyId);
+
+	@Query("""
+			SELECT m FROM Medicine m
+			WHERE m.pharmacy.id = :pharmacyId
+			  AND m.isActive = true
+			  AND m.isDeleted = false
+			  AND (
+			      LOWER(m.name) LIKE LOWER(CONCAT('%', :keyword, '%'))
+			      OR LOWER(COALESCE(m.genericName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+			      OR LOWER(COALESCE(m.brand, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+			      OR LOWER(COALESCE(m.barcode, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+			  )
+			ORDER BY m.name ASC
+			""")
+	List<Medicine> searchForBilling(@Param("pharmacyId") Long pharmacyId, @Param("keyword") String keyword);
+
 }

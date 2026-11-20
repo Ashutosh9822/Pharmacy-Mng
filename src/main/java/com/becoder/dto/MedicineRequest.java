@@ -1,6 +1,11 @@
 
 package com.becoder.dto;
 
+import java.math.BigDecimal;
+
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -36,10 +41,34 @@ public class MedicineRequest {
     private Long categoryId;
 
     private Boolean isActive;
+    
+    @Size(max = 20, message = "HSN code cannot exceed 20 characters")
+    private String hsnCode;
+
+    @DecimalMin(value = "0.00", message = "GST rate cannot be negative")
+    @DecimalMax(value = "100.00", message = "GST rate cannot exceed 100")
+    @Digits(integer = 3, fraction = 2, message = "Invalid GST rate format")
+    private BigDecimal gstRate;
 
     public MedicineRequest() {
     }
 
+    public String getHsnCode() {
+        return hsnCode;
+    }
+
+    public void setHsnCode(String hsnCode) {
+        this.hsnCode = hsnCode;
+    }
+
+    public BigDecimal getGstRate() {
+        return gstRate;
+    }
+
+    public void setGstRate(BigDecimal gstRate) {
+        this.gstRate = gstRate;
+    }
+    
     public String getName() {
         return name;
     }

@@ -1,6 +1,7 @@
 
 package com.becoder.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class MedicineResponse {
@@ -34,6 +35,10 @@ public class MedicineResponse {
     private LocalDateTime updatedOn;
     
     private Long updatedBy;
+    
+    private String hsnCode;
+    
+    private BigDecimal gstRate;
 
     public MedicineResponse() {
     }
@@ -72,6 +77,22 @@ public class MedicineResponse {
         this.updatedBy = updatedBy;
     }
 
+    public String getHsnCode() {
+        return hsnCode;
+    }
+
+    public void setHsnCode(String hsnCode) {
+        this.hsnCode = hsnCode;
+    }
+
+    public BigDecimal getGstRate() {
+        return gstRate;
+    }
+
+    public void setGstRate(BigDecimal gstRate) {
+        this.gstRate = gstRate;
+    }
+    
     public Long getId() {
         return id;
     }
